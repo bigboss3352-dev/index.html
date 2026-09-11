@@ -1,457 +1,1889 @@
+-- 1. جدول إعدادات المحل وقالب الرسائل
+CREATE TABLE shop_settings (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    shop_name VARCHAR(255) DEFAULT 'CircuitFix Workshop',
+    rib_number VARCHAR(34),
+    whatsapp_template TEXT DEFAULT 'السلام عليكم {اسم_الزبون} 🛠️\nهاتفك {موديل_الهاتف} جاهز لدى ورشتنا.\nالعطل: {نوع_العطل}\nالواجب أداؤه: {ثمن_الإصلاح} د.م.\nنشكركم على ثقتكم!',
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
 
-<!DOCTYPE html>
-<html lang="ar" dir="rtl">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>CircuitFix - Workshop Console</title>
+-- 2. جدول العمال والمدير
+CREATE TABLE workers (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    full_name VARCHAR(255) NOT NULL,
+    identifier VARCHAR(255) UNIQUE NOT NULL, -- هاتف أو إيميل
+    password_hash VARCHAR(255) NOT NULL,
+    role VARCHAR(20) CHECK (role IN ('MANAGER', 'WORKER')) DEFAULT 'WORKER',
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
 
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+-- 3. جدول صلاحيات العمال
+CREATE TABLE worker_permissions (
+    worker_id UUID PRIMARY KEY REFERENCES workers(id) ON DELETE CASCADE,
+    can_view_all_repairs BOOLEAN DEFAULT FALSE,
+    can_access_customers BOOLEAN DEFAULT TRUE,
+    can_manage_inventory BOOLEAN DEFAULT FALSE,
+    can_view_financials BOOLEAN DEFAULT FALSE,
+    can_edit_pricing BOOLEAN DEFAULT FALSE,
+    can_delete_records BOOLEAN DEFAULT FALSE
+);
 
-    <style>
-        body { 
-            font-family: 'Tajawal', sans-serif; 
-            background-color: #0b0f19;
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 160 160'%3E%3Cg stroke='%2310b981' stroke-width='0.9' stroke-opacity='0.18' fill='none'%3E%3Cpath d='M0 20h40l20 20h40l20-20h40M20 0v40l20 20v40l-20 20v40M160 140h-40l-20-20h-40l-20 20H0M140 160v-40l-20-20v-40l20-20V0'/%3E%3Ccircle cx='60' cy='40' r='2.5' fill='%2310b981' fill-opacity='0.3'/%3E%3Ccircle cx='100' cy='120' r='2.5' fill='%2310b981' fill-opacity='0.3'/%3E%3Ccircle cx='40' cy='60' r='2.5' fill='%2310b981' fill-opacity='0.3'/%3E%3Ccircle cx='120' cy='100' r='2.5' fill='%2310b981' fill-opacity='0.3'/%3E%3C/g%3E%3C/svg%3E");
-            background-attachment: fixed;
-        }
-        .code-font { font-family: 'JetBrains Mono', monospace; }
-        .glow-emerald { box-shadow: 0 0 15px rgba(16, 185, 129, 0.25); }
-    </style>
-</head>
-<body class="text-slate-200 min-h-screen pb-24 select-none">
+-- 4. جدول الزبناء
+CREATE TABLE customers (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    full_name VARCHAR(255) NOT NULL,
+    phone_number VARCHAR(50) UNIQUE NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
 
-    <div id="app">
-        <!-- Top Bar -->
-        <header class="bg-[#111827]/95 backdrop-blur border-b border-slate-800 p-3 sticky top-0 z-40 flex items-center justify-between shadow-xl">
-            <div class="flex items-center gap-2">
-                <button @click="showMenu = !showMenu" class="p-2 text-slate-400 hover:text-white rounded-lg border border-slate-800 bg-[#1a233a]">
-                    <i class="fa-solid fa-bars text-lg"></i>
-                </button>
-                <div class="flex items-center gap-2">
-                    <div class="w-8 h-8 rounded-lg bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 text-sm glow-emerald">
-                        <i class="fa-solid fa-microchip"></i>
-                    </div>
-                    <span class="font-bold text-white tracking-wider text-base">CircuitFix</span>
-                </div>
+-- 5. جدول تذاكر الصيانة (المرتبط بالعامل والزبون)
+CREATE TABLE repair_tickets (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    reference_code VARCHAR(50) UNIQUE NOT NULL, -- مثل: REP-2026-1001
+    customer_id UUID REFERENCES customers(id),
+    worker_id UUID REFERENCES workers(id), -- العامل صاحب التذكرة (للعزل)
+    brand VARCHAR(100) NOT NULL,
+    model VARCHAR(100) NOT NULL,
+    defects JSONB NOT NULL, -- قائمة الأعطال
+    custom_defect_note TEXT,
+    total_price DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
+    parts_cost DECIMAL(10, 2) DEFAULT 0.00,
+    net_profit DECIMAL(10, 2) GENERATED ALWAYS AS (total_price - parts_cost) STORED,
+    status VARCHAR(50) CHECK (status IN ('PENDING', 'IN_PROGRESS', 'READY', 'DELIVERED')) DEFAULT 'PENDING',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 6. جدول قطع الغيار المشتراة والديون
+CREATE TABLE repair_parts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    ticket_id UUID REFERENCES repair_tickets(id) ON DELETE CASCADE,
+    part_name VARCHAR(255) NOT NULL,
+    purchase_price DECIMAL(10, 2) NOT NULL,
+    supplier_name VARCHAR(255),
+    is_in_stock BOOLEAN DEFAULT FALSE, -- هل هي من المخزن أم جديدة
+    is_paid BOOLEAN DEFAULT TRUE, -- هل تم الدفع للمورد أم دين
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 7. جدول قسم المبيعات السريع (إكسسوارات وهواتف)
+CREATE TABLE sales (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    worker_id UUID REFERENCES workers(id), -- العامل الذي أجرى البيعة
+    category VARCHAR(50) CHECK (category IN ('ACCESSORY', 'PHONE')) NOT NULL,
+    item_name VARCHAR(255) NOT NULL,
+    cost_price DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
+    sale_price DECIMAL(10, 2) NOT NULL,
+    net_profit DECIMAL(10, 2) GENERATED ALWAYS AS (sale_price - cost_price) STORED,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 8. سجل التتبع الخفي للمدير (Audit Trail)
+CREATE TABLE audit_logs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    worker_id UUID REFERENCES workers(id),
+    ticket_id UUID REFERENCES repair_tickets(id),
+    action_type VARCHAR(100) NOT NULL, -- مثل: PRICE_CHANGE, DEFECT_UPDATE
+    details TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+// types.ts
+
+export type UserRole = 'MANAGER' | 'WORKER';
+
+export interface WorkerPermissions {
+  canViewAllRepairs: boolean;
+  canAccessCustomers: boolean;
+  canManageInventory: boolean;
+  canViewFinancials: boolean;
+  canEditPricing: boolean;
+  canDeleteRecords: boolean;
+}
+
+export interface WorkerUser {
+  id: string;
+  fullName: string;
+  identifier: string;
+  role: UserRole;
+  isActive: boolean;
+  permissions?: WorkerPermissions;
+}
+
+export interface Customer {
+  id: string;
+  fullName: string;
+  phoneNumber: string;
+}
+
+export interface DefectItem {
+  id: string;
+  titleAr: string;
+  titleEn: string;
+  icon: string; // FontAwesome Class Name
+}
+
+export interface RepairPart {
+  id?: string;
+  partName: string;
+  purchasePrice: number;
+  supplierName?: string;
+  isInStock: boolean;
+  isPaid: boolean;
+}
+
+export interface RepairTicket {
+  id: string;
+  referenceCode: string;
+  customerId: string;
+  customerName: string;
+  customerPhone: string;
+  workerId: string;
+  workerName: string;
+  brand: string;
+  model: string;
+  defects: string[];
+  customDefectNote?: string;
+  totalPrice: number;
+  partsCost: number;
+  netProfit: number;
+  status: 'PENDING' | 'IN_PROGRESS' | 'READY' | 'DELIVERED';
+  parts: RepairPart[];
+  createdAt: string;
+}
+
+export interface QuickSale {
+  id: string;
+  workerId: string;
+  workerName: string;
+  category: 'ACCESSORY' | 'PHONE';
+  itemName: string;
+  costPrice: number;
+  salePrice: number;
+  netProfit: number;
+  createdAt: string;
+}
+
+export interface ShopSettingsData {
+  shopName: string;
+  ribNumber: string;
+  whatsappTemplate: string;
+}
+
+export interface AuditLog {
+  id: string;
+  workerId: string;
+  workerName: string;
+  ticketId: string;
+  referenceCode: string;
+  actionType: string;
+  details: string;
+  createdAt: string;
+}// utils/whatsapp.ts
+
+export interface MessageData {
+  customerName: string;
+  customerPhone: string;
+  brand: string;
+  model: string;
+  defectsText: string;
+  totalPrice: number;
+  ribNumber?: string;
+  shopName?: string;
+}
+
+/**
+ * دالة تعويض الكلمات المفتاحية فالمتغيرات الديناميكية
+ */
+export const formatWhatsAppMessage = (
+  template: string,
+  data: MessageData
+): string => {
+  let message = template;
+
+  message = message.replace(/{اسم_الزبون}/g, data.customerName || 'الزبون الكرام');
+  message = message.replace(/{ماركة_الهاتف}/g, data.brand || '');
+  message = message.replace(/{موديل_الهاتف}/g, `${data.brand} ${data.model}`.trim());
+  message = message.replace(/{نوع_العطل}/g, data.defectsText || 'صيانة عامة');
+  message = message.replace(/{ثمن_الإصلاح}/g, data.totalPrice.toString());
+  message = message.replace(/{اسم_المحل}/g, data.shopName || 'ورشة الصيانة');
+  message = message.replace(/{رقم_الحساب}/g, data.ribNumber ? `\n\nرقم الحساب البنكي (RIB):\n${data.ribNumber}` : '');
+
+  return message;
+};
+
+/**
+ * دالة توليد رابط الواتساب المباشر
+ */
+export const createWhatsAppLink = (
+  phone: string,
+  formattedMessage: string
+): string => {
+  // تنظيف رقم الهاتف وتحويله للصيغة الدولية (المغرب 212)
+  let cleanPhone = phone.replace(/\D/g, '');
+  
+  if (cleanPhone.startsWith('0')) {
+    cleanPhone = '212' + cleanPhone.substring(1);
+  } else if (!cleanPhone.startsWith('212') && cleanPhone.length === 9) {
+    cleanPhone = '212' + cleanPhone;
+  }
+
+  return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(formattedMessage)}`;
+};
+
+// components/ShopSettingsView.tsx
+
+import React, { useState } from 'react';
+import { ShopSettingsData } from '../types';
+import { formatWhatsAppMessage } from '../utils/whatsapp';
+
+interface Props {
+  settings: ShopSettingsData;
+  onSaveSettings: (updated: ShopSettingsData) => void;
+}
+
+export const ShopSettingsView: React.FC<Props> = ({ settings, onSaveSettings }) => {
+  const [shopName, setShopName] = useState(settings.shopName);
+  const [ribNumber, setRibNumber] = useState(settings.ribNumber || '');
+  const [whatsappTemplate, setWhatsappTemplate] = useState(settings.whatsappTemplate);
+  const [savedSuccess, setSavedSuccess] = useState(false);
+
+  // إدراج المتغيرات الديناميكية فمكان المؤشر
+  const insertTag = (tag: string) => {
+    setWhatsappTemplate((prev) => prev + ` ${tag} `);
+  };
+
+  const handleSave = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSaveSettings({
+      shopName,
+      ribNumber,
+      whatsappTemplate,
+    });
+    setSavedSuccess(true);
+    setTimeout(() => setSavedSuccess(false), 3000);
+  };
+
+  // بيانات افتراضية للمعاينة الحية
+  const samplePreview = formatWhatsAppMessage(whatsappTemplate, {
+    customerName: 'أحمد العلمي',
+    customerPhone: '0661234567',
+    brand: 'Samsung',
+    model: 'Galaxy S22',
+    defectsText: 'تغيير الشاشة',
+    totalPrice: 450,
+    ribNumber: ribNumber,
+    shopName: shopName,
+  });
+
+  return (
+    <div className="max-w-4xl mx-auto space-y-6 text-right p-4" dir="rtl">
+      <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+        <div>
+          <h2 className="text-xl font-bold text-white">إعدادات المحل وقوالب الرسائل</h2>
+          <p className="text-xs text-slate-400">تخصيص الحساب البنكي وصيغ التواصل التلقائية مع الزبناء</p>
+        </div>
+        {savedSuccess && (
+          <span className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 px-3 py-1.5 rounded-xl text-xs font-bold animate-pulse">
+            ✓ تم حفظ التغييرات بنجاح
+          </span>
+        )}
+      </div>
+
+      <form onSubmit={handleSave} className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* العمود الأول: المدخلات الأساسية */}
+        <div className="space-y-4">
+          <div className="bg-[#131b2e] border border-slate-800 rounded-2xl p-4 space-y-3">
+            <h3 className="text-sm font-bold text-slate-200">البيانات العامة للمحل</h3>
+            
+            <div>
+              <label className="block text-xs text-slate-400 mb-1">اسم المحل / الورشة:</label>
+              <input
+                type="text"
+                value={shopName}
+                onChange={(e) => setShopName(e.target.value)}
+                className="w-full bg-[#0b0f19] border border-slate-700 rounded-xl p-2.5 text-white text-xs focus:outline-none focus:border-emerald-500"
+                required
+              />
             </div>
 
-            <div class="flex items-center gap-2">
-                <div class="relative">
-                    <button @click="showLangDropdown = !showLangDropdown" class="bg-[#1a233a] border border-slate-700 text-xs text-slate-300 px-2.5 py-1.5 rounded-lg flex items-center gap-1.5">
-                        <i class="fa-solid fa-globe text-emerald-400"></i>
-                        <span>{{ currentLang }}</span>
-                        <i class="fa-solid fa-chevron-down text-[10px]"></i>
-                    </button>
-                    <div v-if="showLangDropdown" class="absolute left-0 mt-2 w-36 bg-[#111827] border border-slate-700 rounded-xl shadow-2xl p-1 z-50 text-xs">
-                        <div @click="currentLang = 'العربية (AR)'; showLangDropdown = false" class="p-2 hover:bg-emerald-500/10 hover:text-emerald-400 rounded-lg cursor-pointer flex justify-between items-center">
-                            <span>العربية (AR)</span> <i v-if="currentLang.includes('AR')" class="fa-solid fa-check text-emerald-400"></i>
-                        </div>
-                        <div @click="currentLang = '(FR) Français'; showLangDropdown = false" class="p-2 hover:bg-emerald-500/10 hover:text-emerald-400 rounded-lg cursor-pointer"> (FR) Français</div>
-                        <div @click="currentLang = '(EN) English'; showLangDropdown = false" class="p-2 hover:bg-emerald-500/10 hover:text-emerald-400 rounded-lg cursor-pointer"> (EN) English</div>
-                    </div>
-                </div>
-
-                <button @click="showNewTicketModal = true" class="bg-emerald-500 hover:bg-emerald-400 text-slate-950 px-3 py-1.5 rounded-lg font-bold text-xs flex items-center gap-1 shadow-lg shadow-emerald-500/20">
-                    <i class="fa-solid fa-plus"></i> استلام هاتف
-                </button>
+            <div>
+              <label className="block text-xs text-slate-400 mb-1">رقم الحساب البنكي (RIB) - اختياري:</label>
+              <input
+                type="text"
+                value={ribNumber}
+                onChange={(e) => setRibNumber(e.target.value)}
+                placeholder="24 رقم للحساب البنكي"
+                className="w-full bg-[#0b0f19] border border-slate-700 rounded-xl p-2.5 text-emerald-400 font-mono text-xs focus:outline-none focus:border-emerald-500"
+              />
+              <span className="text-[10px] text-slate-500 mt-1 block">إذا تركت الخانة فارغة لن يظهر رقم الحساب فالرسائل.</span>
             </div>
-        </header>
+          </div>
 
-        <!-- Slide Drawer Menu -->
-        <div v-if="showMenu" @click.self="showMenu = false" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex justify-end">
-            <div class="w-72 bg-[#111827] h-full border-r border-slate-800 p-4 space-y-4 overflow-y-auto">
-                <div class="text-xs text-slate-500 uppercase tracking-widest border-b border-slate-800 pb-2">Shop Operations</div>
-                <div class="space-y-1 text-sm font-medium">
-                    <div @click="activeTab = 'dashboard'; showMenu = false" class="p-3 bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 rounded-xl flex justify-between items-center">
-                        <span><i class="fa-solid fa-grip-vertical ml-2"></i> Manager Console</span>
-                        <i class="fa-solid fa-border-all"></i>
-                    </div>
-                    <div @click="activeTab = 'repairs'; showMenu = false" class="p-3 hover:bg-slate-800/60 rounded-xl flex justify-between items-center cursor-pointer">
-                        <span><i class="fa-solid fa-wrench ml-2"></i> تذاكر الإصلاح</span>
-                        <span class="bg-rose-500/20 text-rose-400 text-xs px-2 py-0.5 rounded-full font-bold">3 Urgent</span>
-                    </div>
-                    <div class="p-3 hover:bg-slate-800/60 rounded-xl flex justify-between items-center cursor-pointer text-slate-400">
-                        <span><i class="fa-solid fa-users ml-2"></i> الزبائن</span>
-                    </div>
-                    <div class="p-3 hover:bg-slate-800/60 rounded-xl flex justify-between items-center cursor-pointer text-slate-400">
-                        <span><i class="fa-solid fa-microchip ml-2"></i> القطع والمخزون</span>
-                        <span class="bg-amber-500/20 text-amber-400 text-xs px-2 py-0.5 rounded-full font-bold">2 Low</span>
-                    </div>
-                    <div class="p-3 hover:bg-slate-800/60 rounded-xl flex justify-between items-center cursor-pointer text-slate-400">
-                        <span><i class="fa-solid fa-file-invoice-dollar ml-2"></i> المبيعات والفواتير</span>
-                    </div>
-                    <div class="p-3 hover:bg-slate-800/60 rounded-xl flex justify-between items-center cursor-pointer text-slate-400">
-                        <span><i class="fa-solid fa-chart-line ml-2"></i> التقارير والأرباح</span>
-                    </div>
-                </div>
+          <div className="bg-[#131b2e] border border-slate-800 rounded-2xl p-4 space-y-3">
+            <h3 className="text-sm font-bold text-slate-200">تخصيص قالب رسالة الواتساب</h3>
+            
+            {/* أزرار المتغيرات السريعة */}
+            <div className="space-y-1">
+              <span className="text-[11px] text-slate-400 block">إضافة كلمات مفتاحية ديناميكية:</span>
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  { label: 'اسم الزبون', tag: '{اسم_الزبون}' },
+                  { label: 'موديل الهاتف', tag: '{موديل_الهاتف}' },
+                  { label: 'نوع العطل', tag: '{نوع_العطل}' },
+                  { label: 'الثمن', tag: '{ثمن_الإصلاح}' },
+                  { label: 'اسم المحل', tag: '{اسم_المحل}' },
+                  { label: 'الحساب البنكي', tag: '{رقم_الحساب}' },
+                ].map((item) => (
+                  <button
+                    key={item.tag}
+                    type="button"
+                    onClick={() => insertTag(item.tag)}
+                    className="bg-slate-800 hover:bg-slate-700 text-emerald-400 text-[11px] px-2 py-1 rounded-lg border border-slate-700 transition-colors"
+                  >
+                    + {item.label}
+                  </button>
+                ))}
+              </div>
             </div>
+
+            <textarea
+              rows={6}
+              value={whatsappTemplate}
+              onChange={(e) => setWhatsappTemplate(e.target.value)}
+              className="w-full bg-[#0b0f19] border border-slate-700 rounded-xl p-3 text-white text-xs leading-relaxed focus:outline-none focus:border-emerald-500"
+              required
+            />
+
+            <button
+              type="submit"
+              className="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold py-3 rounded-xl text-xs transition-all shadow-lg shadow-emerald-500/10"
+            >
+              حفظ كافة الإعدادات
+            </button>
+          </div>
         </div>
 
-        <!-- Main Workspace -->
-        <main class="p-3 max-w-lg mx-auto space-y-4">
-            <div v-if="activeTab === 'dashboard'" class="space-y-3">
-                <div class="bg-[#131b2e]/90 border border-slate-800 rounded-2xl p-4 text-center space-y-2 relative overflow-hidden backdrop-blur">
-                    <span class="bg-amber-500/10 text-amber-400 border border-amber-500/30 text-[10px] px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider">Manager Operations Console</span>
-                    <h2 class="text-xl font-extrabold text-white">Workshop Overview & Control</h2>
-                    <p class="text-xs text-slate-400 leading-relaxed">Real-time oversight of all technician benches, urgent repair SLA deadlines, inventory levels, and staff permission boundaries.</p>
-                    <div class="flex justify-center gap-2 pt-2">
-                        <button @click="showNewTicketModal = true" class="bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-bold px-4 py-2 rounded-xl flex items-center gap-1 shadow-lg shadow-emerald-500/20">
-                            New Intake <i class="fa-solid fa-plus"></i>
-                        </button>
-                        <button class="bg-[#1a233a] border border-amber-500/30 text-amber-400 text-xs font-bold px-3 py-2 rounded-xl flex items-center gap-1">
-                            Permissions <i class="fa-solid fa-shield-halved"></i>
-                        </button>
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-2 gap-2.5">
-                    <div class="bg-[#131b2e]/90 border border-slate-800 rounded-2xl p-3 flex flex-col justify-between space-y-2 backdrop-blur">
-                        <div class="flex justify-between items-center">
-                            <div class="w-7 h-7 rounded-lg bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 text-xs"><i class="fa-solid fa-circle-check"></i></div>
-                            <span class="text-xs text-slate-400 font-medium">جاهز للاستلام</span>
-                        </div>
-                        <div class="flex items-baseline justify-between">
-                            <span class="text-xs text-slate-500">devices</span>
-                            <span class="text-2xl font-bold code-font text-cyan-400">1</span>
-                        </div>
-                        <div class="text-[10px] text-slate-500 border-t border-slate-800/80 pt-1">Quality check passed</div>
-                    </div>
-
-                    <div class="bg-[#131b2e]/90 border border-slate-800 rounded-2xl p-3 flex flex-col justify-between space-y-2 backdrop-blur">
-                        <div class="flex justify-between items-center">
-                            <div class="w-7 h-7 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 text-xs"><i class="fa-solid fa-screwdriver-wrench"></i></div>
-                            <span class="text-xs text-slate-400 font-medium uppercase tracking-wider">Active Repairs</span>
-                        </div>
-                        <div class="flex items-baseline justify-between">
-                            <span class="text-xs text-rose-400 font-bold">(3 urgent)</span>
-                            <span class="text-2xl font-bold code-font text-white">5</span>
-                        </div>
-                        <div class="text-[10px] text-slate-500 border-t border-slate-800/80 pt-1">Across all technician stations</div>
-                    </div>
-
-                    <div class="bg-[#131b2e]/90 border border-slate-800 rounded-2xl p-3 flex flex-col justify-between space-y-2 backdrop-blur">
-                        <div class="flex justify-between items-center">
-                            <div class="w-7 h-7 rounded-lg bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-400 text-xs"><i class="fa-solid fa-microchip"></i></div>
-                            <span class="text-xs text-slate-400 font-medium uppercase tracking-wider">Stock Alerts</span>
-                        </div>
-                        <div class="flex items-baseline justify-between">
-                            <span class="text-xs text-slate-500">items low</span>
-                            <span class="text-2xl font-bold code-font text-rose-400">2</span>
-                        </div>
-                        <div class="text-[10px] text-slate-500 border-t border-slate-800/80 pt-1">Below minimum threshold</div>
-                    </div>
-
-                    <div class="bg-[#131b2e]/90 border border-slate-800 rounded-2xl p-3 flex flex-col justify-between space-y-2 backdrop-blur">
-                        <div class="flex justify-between items-center">
-                            <div class="w-7 h-7 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 text-xs"><i class="fa-solid fa-coins"></i></div>
-                            <span class="text-[11px] text-slate-400 font-medium uppercase tracking-wider">Revenue / Profit</span>
-                        </div>
-                        <div>
-                            <div class="flex items-baseline justify-between">
-                                <span class="text-[10px] text-emerald-400 font-bold">+56.7%</span>
-                                <span class="text-xl font-bold code-font text-white">2,630 <span class="text-xs font-normal">د.م</span></span>
-                            </div>
-                        </div>
-                        <div class="text-[10px] text-slate-400 border-t border-slate-800/80 pt-1 flex justify-between">
-                            <span>net profit</span>
-                            <span class="text-emerald-400 font-bold code-font">1,490 د.م</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="flex justify-between items-center pt-2">
-                    <span class="text-xs font-bold text-slate-300 flex items-center gap-1"><i class="fa-solid fa-fire text-rose-500"></i> Priority & Urgent Repairs Queue</span>
-                    <button @click="activeTab = 'repairs'" class="text-xs text-emerald-400 font-bold flex items-center gap-1">View All (6) <i class="fa-solid fa-arrow-left"></i></button>
-                </div>
-
-                <div class="bg-[#131b2e]/90 border border-slate-800 rounded-2xl p-3 space-y-2.5 backdrop-blur">
-                    <div class="flex justify-between items-center">
-                        <div class="flex gap-1.5">
-                            <span class="bg-rose-500/20 text-rose-400 border border-rose-500/30 text-[10px] px-2 py-0.5 rounded-md font-bold uppercase"><i class="fa-solid fa-calendar-xmark ml-1"></i> Overdue</span>
-                            <span class="bg-rose-600 text-white text-[10px] px-2 py-0.5 rounded-md font-bold flex items-center gap-1"><i class="fa-solid fa-fire"></i> عاجل جداً / طارئ</span>
-                        </div>
-                        <span class="code-font text-xs font-bold text-slate-400">REP-2026-101</span>
-                    </div>
-                    <div class="flex justify-between items-center">
-                        <h3 class="font-bold text-white text-base">Apple iPhone 15 Pro Max</h3>
-                        <i class="fa-solid fa-mobile-screen text-slate-600"></i>
-                    </div>
-                    <p class="text-xs text-slate-400 leading-tight">Liquid exposure in seawater. No power, bootlooping on...</p>
-                    <div class="flex flex-wrap gap-1.5">
-                        <span class="bg-purple-500/10 text-purple-400 border border-purple-500/30 text-[10px] px-2 py-0.5 rounded-lg"><i class="fa-solid fa-microchip ml-1"></i> عطل البوردة (Motherboard)</span>
-                        <span class="bg-blue-500/10 text-blue-400 border border-blue-500/30 text-[10px] px-2 py-0.5 rounded-lg"><i class="fa-solid fa-droplet ml-1"></i> دخول الماء (Water Damage)</span>
-                    </div>
-                </div>
-                                </div>
-              <div v-if="activeTab === 'repairs'" class="space-y-3">
-                <div class="flex justify-between items-center">
-                    <h2 class="font-bold text-white text-lg">جميع تذاكر الصيانة</h2>
-                    <button @click="showNewTicketModal = true" class="bg-emerald-500 text-slate-950 text-xs px-3 py-1.5 rounded-xl font-bold">+ إضافة تذكرة</button>
-                </div>
-                <div v-for="t in repairs" :key="t.id" class="bg-[#131b2e]/90 border border-slate-800 p-4 rounded-2xl space-y-2 backdrop-blur">
-                    <div class="flex justify-between">
-                        <span class="font-bold text-white">{{ t.customerName }}</span>
-                        <span class="code-font text-xs text-emerald-400">{{ t.ticketNumber }}</span>
-                    </div>
-                    <div class="text-xs text-slate-400">{{ t.brand }} {{ t.model }} - <span class="text-amber-400">{{ t.defect }}</span></div>
-                    <div class="flex justify-between items-center pt-2 border-t border-slate-800 text-xs">
-                        <span class="font-bold text-emerald-400 code-font">{{ t.totalCost }} د.م</span>
-                        <button @click="sendWhatsApp(t)" class="bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 px-2.5 py-1 rounded-lg"><i class="fa-brands fa-whatsapp"></i> واتساب</button>
-                    </div>
-                </div>
+        {/* العمود الثاني: المعاينة الحية للرسالة */}
+        <div className="bg-[#131b2e] border border-slate-800 rounded-2xl p-4 space-y-3 flex flex-col justify-between">
+          <div>
+            <div className="flex items-center gap-2 mb-3 border-b border-slate-800 pb-2">
+              <i className="fa-brands fa-whatsapp text-emerald-400 text-base"></i>
+              <h3 className="text-sm font-bold text-slate-200">معاينة حية للرسالة (Live Preview)</h3>
             </div>
-        </main>
-
-        <!-- Intake Modal -->
-        <div v-if="showNewTicketModal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-2 overflow-y-auto">
-            <div class="bg-[#0f172a] border border-slate-800 rounded-3xl p-4 w-full max-w-md space-y-4 shadow-2xl my-auto max-h-[92vh] overflow-y-auto text-xs">
-                
-                <div class="flex justify-between items-start border-b border-slate-800 pb-3">
-                    <div>
-                        <h3 class="font-bold text-white text-base">New Repair Intake Ticket</h3>
-                        <p class="text-slate-400 text-[11px]">Register device inspection, customer intake, and assign technician</p>
-                    </div>
-                    <button @click="showNewTicketModal = false" class="text-slate-400 hover:text-white p-1"><i class="fa-solid fa-xmark text-lg"></i></button>
-                </div>
-
-                <!-- Brand & Model Section -->
-                <div class="bg-[#131b2e] border border-slate-800 p-3 rounded-2xl space-y-3">
-                    <div class="text-cyan-400 font-bold flex items-center gap-1.5 code-font">
-                        <i class="fa-solid fa-mobile-screen"></i> 1. اختيار ماركة ونوع وموديل الهاتف (BRAND & MODEL)
-                    </div>
-                    <div>
-                        <label class="text-slate-300 block mb-1">شركة الهاتف / الماركة (Manufacturer / Brand) *</label>
-                        <select v-model="newTicket.brand" class="w-full bg-[#0b0f19] border border-slate-700 rounded-xl p-2.5 text-white font-bold">
-                            <option value="Samsung">Samsung - سامسونج</option>
-                            <option value="Apple">Apple - آبل</option>
-                            <option value="Xiaomi">Xiaomi & Redmi - شاومي وريدمي</option>
-                            <option value="Huawei">Huawei - هواوي</option>
-                        </select>
-                    </div>
-
-                    <div class="flex flex-wrap gap-1.5">
-                        <button v-for="b in ['Samsung (سامسونج)', 'Apple (آبل)', 'Xiaomi (شاومي وريدمي)', 'Huawei (هواوي)', 'Infinix (إنفينيكس)', 'Realme (ريلمي)', 'Oppo (أوبو)', 'Honor (هونور)', 'Tecno (تكنو)']" 
-                                @click="newTicket.brand = b.split(' ')[0]"
-                                :class="newTicket.brand === b.split(' ')[0] ? 'bg-cyan-500 text-slate-950 font-bold' : 'bg-[#1a233a] text-slate-300 border border-slate-700'"
-                                class="px-2.5 py-1 rounded-lg text-[11px] transition">
-                            {{ b }}
-                        </button>
-                    </div>
-
-                    <div>
-                        <label class="text-slate-300 block mb-1">نوع وموديل الهاتف (Model & Generation) *</label>
-                        <input v-model="newTicket.model" type="text" placeholder="مثال: Galaxy J3 (2016) أو اكتب الموديل يدوياً" class="w-full bg-[#0b0f19] border border-slate-700 rounded-xl p-2.5 text-white">
-                    </div>
-
-                    <div class="space-y-1">
-                        <span class="text-amber-400 text-[10px] font-bold"><i class="fa-solid fa-bolt"></i> أشهر موديلات سامسونج بنقرة واحدة:</span>
-                        <div class="flex flex-wrap gap-1">
-                            <button v-for="m in ['Galaxy J3 Pro', 'Galaxy J3 (2016)', 'Galaxy J3 (2017)', 'Galaxy J5 (2015)', 'Galaxy J5 (2016)', 'Galaxy J5 Prime', 'Galaxy J5 Pro (2017)', 'Galaxy J7 (2015)', 'Galaxy J7 (2016)', 'Galaxy J7 Prime']"
-                                    @click="newTicket.model = m"
-                                    :class="newTicket.model === m ? 'bg-cyan-500 text-slate-950 font-bold' : 'bg-[#1a233a] text-slate-300 border border-slate-800'"
-                                    class="px-2 py-1 rounded-lg text-[10px]">
-                                {{ m }}
-                            </button>
-                        </div>
-                    </div>
-
-                    <div class="space-y-2 pt-1">
-                        <div>
-                            <label class="text-slate-400 block text-[11px]">Screen Lock / Passcode</label>
-                            <input v-model="newTicket.passcode" type="text" placeholder="رمز القفل أو النمط (مثال: 1928)" class="w-full bg-[#0b0f19] border border-slate-700 rounded-xl p-2 text-white">
-                        </div>
-                        <div>
-                            <label class="text-slate-400 block text-[11px]">IMEI / Serial Number</label>
-                            <input v-model="newTicket.imei" type="text" placeholder="(اختياري) رقم IMEI" class="w-full bg-[#0b0f19] border border-slate-700 rounded-xl p-2 text-white">
-                        </div>
-                        <div>
-                            <label class="text-slate-400 block text-[11px]">Physical Condition Inspection</label>
-                            <input v-model="newTicket.condition" type="text" placeholder="حالة مقبولة، خدوش طفيفة، الشاشة متضررة" class="w-full bg-[#0b0f19] border border-slate-700 rounded-xl p-2 text-slate-300">
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Customer Information -->
-                <div class="bg-[#131b2e] border border-slate-800 p-3 rounded-2xl space-y-3">
-                    <div class="flex justify-between items-center">
-                        <span class="text-emerald-400 font-bold code-font">2. معلومات الزبون (CUSTOMER INFORMATION)</span>
-                        <div class="flex bg-[#0b0f19] p-0.5 rounded-lg border border-slate-700">
-                            <button @click="isNewClient = false" :class="!isNewClient ? 'bg-slate-700 text-white' : 'text-slate-400'" class="px-2 py-0.5 rounded text-[10px]">زبون مسجل</button>
-                            <button @click="isNewClient = true" :class="isNewClient ? 'bg-emerald-500 text-slate-950 font-bold' : 'text-slate-400'" class="px-2 py-0.5 rounded text-[10px]">زبون جديد +</button>
-                        </div>
-                    </div>
-                    <div>
-                        <label class="text-slate-300 block mb-1">Phone Number (رقم هاتف الزبون) *</label>
-                        <input v-model="newTicket.phone" type="text" placeholder="0600000000 أو 212+" class="w-full bg-[#0b0f19] border border-slate-700 rounded-xl p-2.5 text-white">
-                    </div>
-                    <div>
-                        <label class="text-slate-300 block mb-1">Full Name (اسم الزبون) *</label>
-                        <input v-model="newTicket.customerName" type="text" placeholder="مثال: يوسف بناني" class="w-full bg-[#0b0f19] border border-slate-700 rounded-xl p-2.5 text-white">
-                    </div>
-                    <div class="flex items-center gap-2 pt-1">
-                        <input type="checkbox" id="waAlert" v-model="newTicket.sendWa" class="accent-emerald-500 w-4 h-4 rounded">
-                        <label for="waAlert" class="text-emerald-400 font-bold">فتح واتساب لإشعار الزبون فور حفظ التذكرة</label>
-                    </div>
-                </div>
-
-                <!-- Defects Buttons -->
-                <div class="bg-[#131b2e] border border-slate-800 p-3 rounded-2xl space-y-2">
-                    <div class="text-cyan-400 font-bold code-font">3. الأعطال والمشاكل التقنية المكتشفة (تشخيص الأعطال)</div>
-                    <div class="grid grid-cols-1 gap-1.5">
-                        <button v-for="d in [
-                            { name: 'عطل الشاشة (Screen / OLED)', icon: 'fa-mobile-button', color: 'border-emerald-500/50 text-emerald-400 bg-emerald-500/10' },
-                            { name: 'عطل الشحن (Charging Port)', icon: 'fa-bolt', color: 'border-amber-500/50 text-amber-400 bg-amber-500/10' },
-                            { name: 'عطل البطارية (Battery Drain / Swelling)', icon: 'fa-battery-quarter', color: 'border-teal-500/50 text-teal-400 bg-teal-500/10' },
-                            { name: 'دخول الماء والأكسدة (Water / Liquid Damage)', icon: 'fa-droplet', color: 'border-blue-500/50 text-blue-400 bg-blue-500/10' },
-                            { name: 'عطل البوردة / مايكرو-تلحيم (Logic Board)', icon: 'fa-microchip', color: 'border-purple-500/50 text-purple-400 bg-purple-500/10' },
-                            { name: 'عطل الكاميرا والعدسة (Camera / Lens Glass)', icon: 'fa-camera', color: 'border-rose-500/50 text-rose-400 bg-rose-500/10' },
-                            { name: 'الزجاج الخلفي والإطار (Back Glass / Housing)', icon: 'fa-layer-group', color: 'border-slate-500/50 text-slate-300 bg-slate-800/40' },
-                            { name: 'عطل الصوت والمايك (Audio / Speaker / Mic)', icon: 'fa-volume-high', color: 'border-emerald-500/50 text-emerald-300 bg-emerald-900/20' },
-                            { name: 'عطل البصمة / الفيس أيدي (FaceID / Biometrics)', icon: 'fa-fingerprint', color: 'border-indigo-500/50 text-indigo-400 bg-indigo-500/10' },
-                            { name: 'سوفتوير وتوقف على الشعار (Software / Bootloop)', icon: 'fa-arrows-rotate', color: 'border-sky-500/50 text-sky-400 bg-sky-500/10' },
-                            { name: 'عطل الشبكة والواي فاي (Network / Wi-Fi)', icon: 'fa-wifi', color: 'border-blue-600/50 text-blue-300 bg-blue-900/20' }
-                        ]" 
-                        @click="toggleDefect(d.name)"
-                        :class="selectedDefects.includes(d.name) ? 'ring-2 ring-emerald-400 font-bold' : ''"
-                        class="p-2.5 rounded-xl border flex items-center justify-between transition text-right" :class="d.color">
-                            <span>{{ d.name }}</span>
-                            <i :class="'fa-solid ' + d.icon"></i>
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Financial Calculation Box -->
-                <div class="bg-[#131b2e] border border-slate-800 p-3 rounded-2xl space-y-3">
-                    <div class="text-amber-400 font-bold code-font">ملخص الحساب وصافي ربح اليد العاملة</div>
-                    <div>
-                        <label class="text-slate-300 block mb-1">1. ثمن الإصلاح الإجمالي للزبون (د.م)</label>
-                        <input v-model.number="newTicket.totalCost" type="number" placeholder="450" class="w-full bg-[#0b0f19] border border-slate-700 rounded-xl p-2.5 text-white font-bold text-base code-font">
-                    </div>
-                    <div>
-                        <label class="text-slate-300 block mb-1">2. مجموع ثمن شراء قطع الغيار (د.م)</label>
-                        <input v-model.number="newTicket.partsCost" type="number" placeholder="0" class="w-full bg-[#0b0f19] border border-slate-700 rounded-xl p-2.5 text-white code-font">
-                    </div>
-                    <div class="bg-emerald-500/10 border border-emerald-500/40 p-3 rounded-xl flex justify-between items-center text-emerald-400 font-bold text-sm">
-                        <span>3. صافي ربح اليد العاملة:</span>
-                        <span class="text-lg code-font">= {{ (newTicket.totalCost || 0) - (newTicket.partsCost || 0) }} د.م</span>
-                    </div>
-                </div>
-
-                <!-- Priority & Assignee -->
-                <div class="bg-[#131b2e] border border-slate-800 p-3 rounded-2xl space-y-3">
-                    <div>
-                        <label class="text-slate-300 block mb-1">Priority Level (درجة الأولوية)</label>
-                        <select v-model="newTicket.priority" class="w-full bg-[#0b0f19] border border-slate-700 rounded-xl p-2.5 text-amber-400 font-bold">
-                            <option value="عادية">أولوية عادية</option>
-                            <option value="عالية">أولوية عالية ⚠️</option>
-                            <option value="طارئ جداً">عاجل جداً / طارئ 🔥</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="text-slate-300 block mb-1">Assign Technician (تعيين الفني)</label>
-                        <select v-model="newTicket.technician" class="w-full bg-[#0b0f19] border border-slate-700 rounded-xl p-2.5 text-white">
-                            <option value="Marcus Vance (Master)">Marcus Vance (Master)</option>
-                            <option value="أحمد التقني">أحمد التقني</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="text-slate-300 block mb-1">Delivery Due Date (تاريخ التسليم المتوقع)</label>
-                        <input v-model="newTicket.dueDate" type="text" placeholder="11/09/2026, 16:00" class="w-full bg-[#0b0f19] border border-slate-700 rounded-xl p-2.5 text-white code-font">
-                    </div>
-                </div>
-
-                <button @click="saveNewTicket" class="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold p-3 rounded-2xl text-sm shadow-lg shadow-emerald-500/20">
-                    <i class="fa-solid fa-check-circle ml-1"></i> حفظ وتأكيد التذكرة
-                </button>
+            
+            <div className="bg-[#0b141a] border border-slate-800 rounded-2xl p-4 space-y-2 relative">
+              <div className="bg-[#202c33] text-slate-100 rounded-xl rounded-tr-none p-3 text-xs leading-relaxed whitespace-pre-line shadow-md border-r-4 border-emerald-500">
+                {samplePreview}
+              </div>
+              <span className="text-[10px] text-slate-500 block text-left pt-1">معاينة شكل الرسالة كما ستصل للزبون</span>
             </div>
+          </div>
+
+          <div className="bg-slate-900/60 rounded-xl p-3 border border-slate-800/80 text-[11px] text-slate-400 space-y-1">
+            <span className="font-bold text-amber-400 block">💡 ملاحظة:</span>
+            <p>الكلمات المكتوبة بين أقواس مثل <code className="text-emerald-400">{`{اسم_الزبون}`}</code> سيتم استبدالها تلقائياً ببيانات الهاتف والزبون الحقيقية عند الإرسال.</p>
+          </div>
         </div>
-
-        <!-- Bottom Navigation Bar -->
-        <nav class="fixed bottom-0 inset-x-0 bg-[#0f172a]/95 backdrop-blur border-t border-slate-800 z-40 p-1.5 flex justify-around text-[10px]">
-            <button @click="activeTab = 'dashboard'" :class="activeTab === 'dashboard' ? 'text-emerald-400 font-bold' : 'text-slate-400'" class="flex flex-col items-center gap-1">
-                <i class="fa-solid fa-border-all text-base"></i> الرئيسية
-            </button>
-            <button @click="activeTab = 'repairs'" :class="activeTab === 'repairs' ? 'text-emerald-400 font-bold' : 'text-slate-400'" class="flex flex-col items-center gap-1">
-                <i class="fa-solid fa-wrench text-base"></i> تذاكر الإصلاح
-            </button>
-            <button class="text-slate-400 flex flex-col items-center gap-1">
-                <i class="fa-solid fa-users text-base"></i> الزبائن
-            </button>
-            <button class="text-slate-400 flex flex-col items-center gap-1">
-                <i class="fa-solid fa-microchip text-base"></i> القطع
-            </button>
-            <button @click="showMenu = true" class="text-slate-400 flex flex-col items-center gap-1">
-                <i class="fa-solid fa-ellipsis text-base"></i> المزيد
-            </button>
-        </nav>
+      </form>
     </div>
-        <script>
-        const { createApp } = Vue;
+  );
+};// components/WorkerManagementView.tsx
 
-        createApp({
-            data() {
-                return {
-                    activeTab: 'dashboard',
-                    showMenu: false,
-                    showLangDropdown: false,
-                    showNewTicketModal: false,
-                    currentLang: 'العربية (AR)',
-                    isNewClient: true,
-                    selectedDefects: ['عطل الشاشة (Screen / OLED)'],
-                    repairs: [],
-                    newTicket: {
-                        customerName: '',
-                        phone: '',
-                        brand: 'Samsung',
-                        model: 'Galaxy J3 (2016)',
-                        passcode: '1928',
-                        imei: '',
-                        condition: 'حالة مقبولة، خدوش طفيفة، الشاشة متضررة',
-                        totalCost: 450,
-                        partsCost: 0,
-                        priority: 'عالية',
-                        technician: 'Marcus Vance (Master)',
-                        dueDate: '11/09/2026, 16:00',
-                        sendWa: true
-                    }
-                }
-            },
-            methods: {
-                toggleDefect(defect) {
-                    const idx = this.selectedDefects.indexOf(defect);
-                    if (idx > -1) {
-                        this.selectedDefects.splice(idx, 1);
-                    } else {
-                        this.selectedDefects.push(defect);
-                    }
-                },
-                saveNewTicket() {
-                    if (!this.newTicket.customerName || !this.newTicket.phone) {
-                        alert('المرجو كتابة اسم الزبون ورقم الهاتف!');
-                        return;
-                    }
-                    const ticket = {
-                        id: Date.now(),
-                        ticketNumber: 'REP-2026-' + Math.floor(100 + Math.random() * 900),
-                        defect: this.selectedDefects.join('، ') || 'تشخيص عام',
-                        ...this.newTicket
-                    };
-                    this.repairs.unshift(ticket);
-                    if (this.newTicket.sendWa) {
-                        this.sendWhatsApp(ticket);
-                    }
-                    this.showNewTicketModal = false;
-                },
-                sendWhatsApp(ticket) {
-                    const msg = `مرحباً ${ticket.customerName}، تم تسجيل هاتفكم (${ticket.brand} ${ticket.model}) بنجاح فـ CircuitFix. رقم التذكرة: ${ticket.ticketNumber}`;
-                    window.open(`https://wa.me/212${ticket.phone.replace(/^0/, '')}?text=${encodeURIComponent(msg)}`, '_blank');
-                }
-            }
-        }).mount('#app');
-    </script>
-</body>
-</html>
+import React, { useState } from 'react';
+import { WorkerUser, WorkerPermissions } from '../types';
+
+interface WorkerStats {
+  workerId: string;
+  completedRepairs: number;
+  totalRevenue: number;
+  netProfit: number;
+}
+
+interface Props {
+  workers: WorkerUser[];
+  workerStats: WorkerStats[];
+  onAddWorker: (worker: Omit<WorkerUser, 'id'>, passwordCode: string) => void;
+  onUpdatePermissions: (workerId: string, permissions: WorkerPermissions) => void;
+  onToggleWorkerActive: (workerId: string) => void;
+  onDeleteWorker: (workerId: string) => void;
+}
+
+export const WorkerManagementView: React.FC<Props> = ({
+  workers,
+  workerStats,
+  onAddWorker,
+  onUpdatePermissions,
+  onToggleWorkerActive,
+  onDeleteWorker,
+}) => {
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [fullName, setFullName] = useState('');
+  const [identifier, setIdentifier] = useState('');
+  const [passwordCode, setPasswordCode] = useState('');
+
+  // الصلاحيات الافتراضية للعمال الجدد
+  const defaultPermissions: WorkerPermissions = {
+    canViewAllRepairs: false,
+    canAccessCustomers: true,
+    canManageInventory: false,
+    canViewFinancials: false,
+    canEditPricing: false,
+    canDeleteRecords: false,
+  };
+
+  const handleAddSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!fullName || !identifier || !passwordCode) {
+      alert('المرجو ملء جميع البيانات المطلوبة');
+      return;
+    }
+
+    onAddWorker(
+      {
+        fullName,
+        identifier,
+        role: 'WORKER',
+        isActive: true,
+        permissions: defaultPermissions,
+      },
+      passwordCode
+    );
+
+    setFullName('');
+    setIdentifier('');
+    setPasswordCode('');
+    setShowAddModal(false);
+  };
+
+  const handlePermissionToggle = (
+    worker: WorkerUser,
+    permKey: keyof WorkerPermissions
+  ) => {
+    if (!worker.permissions) return;
+    const updated = {
+      ...worker.permissions,
+      [permKey]: !worker.permissions[permKey],
+    };
+    onUpdatePermissions(worker.id, updated);
+  };
+
+  return (
+    <div className="max-w-6xl mx-auto space-y-6 text-right p-4" dir="rtl">
+      {/* الترويسة وأزرار الإضافة */}
+      <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+        <div>
+          <h2 className="text-xl font-bold text-white flex items-center gap-2">
+            <i className="fa-solid fa-users-gear text-emerald-400"></i>
+            إدارة العمال والصلاحيات
+          </h2>
+          <p className="text-xs text-slate-400">التحكم في وصول العمال ومتابعة إنتاجيتهم بشكل فردي</p>
+        </div>
+        <button
+          onClick={() => setShowAddModal(true)}
+          className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold px-4 py-2.5 rounded-xl text-xs flex items-center gap-2 shadow-lg shadow-emerald-500/20 transition-all"
+        >
+          <i className="fa-solid fa-user-plus"></i>
+          إضافة عامل جديد
+        </button>
+      </div>
+
+      {/* قائمة العمال */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {workers
+          .filter((w) => w.role === 'WORKER')
+          .map((worker) => {
+            const stats = workerStats.find((s) => s.workerId === worker.id) || {
+              completedRepairs: 0,
+              totalRevenue: 0,
+              netProfit: 0,
+            };
+
+            const perms = worker.permissions || defaultPermissions;
+
+            return (
+              <div
+                key={worker.id}
+                className={`bg-[#131b2e] border ${
+                  worker.isActive ? 'border-slate-800' : 'border-rose-900/40 opacity-70'
+                } rounded-2xl p-5 space-y-4 shadow-lg relative overflow-hidden`}
+              >
+                {/* معلومات العامل الأساسية */}
+                <div className="flex items-start justify-between border-b border-slate-800 pb-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-white text-base">{worker.fullName}</span>
+                      <span
+                        className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
+                          worker.isActive
+                            ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                            : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                        }`}
+                      >
+                        {worker.isActive ? 'نشط' : 'موقف'}
+                      </span>
+                    </div>
+                    <span className="text-xs text-slate-400 font-mono block mt-0.5">
+                      {worker.identifier}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => onToggleWorkerActive(worker.id)}
+                      title={worker.isActive ? 'توقيف الحساب' : 'تفعيل الحساب'}
+                      className="text-slate-400 hover:text-amber-400 p-1.5 rounded-lg bg-slate-900/80 border border-slate-800 text-xs"
+                    >
+                      <i className={`fa-solid ${worker.isActive ? 'fa-user-slash' : 'fa-user-check'}`}></i>
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (confirm(`هل أنت تأكد من حذف حساب العامل ${worker.fullName}؟`)) {
+                          onDeleteWorker(worker.id);
+                        }
+                      }}
+                      title="حذف نهائي"
+                      className="text-slate-400 hover:text-rose-400 p-1.5 rounded-lg bg-slate-900/80 border border-slate-800 text-xs"
+                    >
+                      <i className="fa-solid fa-trash-can"></i>
+                    </button>
+                  </div>
+                </div>
+
+                {/* كارت إحصائيات أداء العامل */}
+                <div className="grid grid-cols-3 gap-2 bg-[#0b0f19] p-3 rounded-xl border border-slate-800/80 text-center">
+                  <div>
+                    <span className="text-[10px] text-slate-400 block">الهواتف المصلحة</span>
+                    <span className="text-sm font-bold text-white font-mono">{stats.completedRepairs}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-400 block">المداخيل</span>
+                    <span className="text-sm font-bold text-emerald-400 font-mono">
+                      {stats.totalRevenue} د.م.
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-400 block">صافي الأرباح</span>
+                    <span className="text-sm font-bold text-cyan-400 font-mono">
+                      {stats.netProfit} د.م.
+                    </span>
+                  </div>
+                </div>
+
+                {/* مفاتيح التحكم ف الصلاحيات */}
+                <div className="space-y-2">
+                  <span className="text-xs font-bold text-slate-300 block">صلاحيات العامل فمساحته:</span>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    {[
+                      { key: 'canViewAllRepairs', label: 'رؤية جميع إصلاحات الورشة' },
+                      { key: 'canAccessCustomers', label: 'الوصول لدليل الزبناء' },
+                      { key: 'canManageInventory', label: 'إدارة المخزون وقطع الغيار' },
+                      { key: 'canViewFinancials', label: 'رؤية الأرباح والتقارير' },
+                      { key: 'canEditPricing', label: 'تعديل أسعار الصيانة' },
+                      { key: 'canDeleteRecords', label: 'حذف التذاكر والبيانات' },
+                    ].map((item) => {
+                      const pKey = item.key as keyof WorkerPermissions;
+                      const isChecked = perms[pKey];
+                      return (
+                        <label
+                          key={item.key}
+                          className="flex items-center gap-2 bg-[#0b0f19]/60 border border-slate-800 p-2 rounded-xl cursor-pointer hover:border-slate-700 transition-colors"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => handlePermissionToggle(worker, pKey)}
+                            className="accent-emerald-500 w-4 h-4 rounded cursor-pointer"
+                          />
+                          <span className={isChecked ? 'text-slate-200 font-medium' : 'text-slate-500'}>
+                            {item.label}
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+      </div>
+
+      {/* Modal إضافة عامل جديد */}
+      {showAddModal && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-[#0f172a] border border-slate-800 rounded-3xl p-6 w-full max-w-md space-y-4 text-right">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <h3 className="font-bold text-white text-base">إضافة عامل جديد للنظام</h3>
+              <button
+                onClick={() => setShowAddModal(false)}
+                className="text-slate-400 hover:text-white text-sm"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleAddSubmit} className="space-y-3 text-xs">
+              <div>
+                <label className="block text-slate-400 mb-1">الاسم الكامل للعامل:</label>
+                <input
+                  type="text"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  placeholder="مثال: يوسف العلمي"
+                  className="w-full bg-[#0b0f19] border border-slate-700 rounded-xl p-3 text-white focus:outline-none focus:border-emerald-500"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-400 mb-1">رقم الهاتف أو البريد الإلكتروني (للدخول):</label>
+                <input
+                  type="text"
+                  value={identifier}
+                  onChange={(e) => setIdentifier(e.target.value)}
+                  placeholder="0600000000 / worker@shop.com"
+                  className="w-full bg-[#0b0f19] border border-slate-700 rounded-xl p-3 text-white font-mono focus:outline-none focus:border-emerald-500"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-400 mb-1">الكود السري / كلمة المرور:</label>
+                <input
+                  type="password"
+                  value={passwordCode}
+                  onChange={(e) => setPasswordCode(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full bg-[#0b0f19] border border-slate-700 rounded-xl p-3 text-white font-mono focus:outline-none focus:border-emerald-500"
+                  required
+                />
+              </div>
+
+              <div className="flex gap-2 pt-3">
+                <button
+                  type="submit"
+                  className="flex-1 bg-emerald-500 hover:bg-emerald-400 font-extrabold p-3 rounded-xl text-slate-950 text-xs shadow-lg shadow-emerald-500/20"
+                >
+                  حفظ وإنشاء الحساب
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowAddModal(false)}
+                  className="bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold p-3 rounded-xl text-xs"
+                >
+                  إلغاء
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};// utils/workspaceIsolation.ts
+
+import { RepairTicket, QuickSale, WorkerUser } from '../types';
+
+/**
+ * فلترة التذاكر والإصلاحات حسب المستخدم الحالي
+ */
+export const filterTicketsForUser = (
+  tickets: RepairTicket[],
+  currentUser: WorkerUser
+): RepairTicket[] => {
+  // المدير يرى كل أجهزة المحل دائماً
+  if (currentUser.role === 'MANAGER') {
+    return tickets;
+  }
+
+  // إذا كان العامل يمتلك صلاحية رؤية جميع الإصلاحات
+  if (currentUser.permissions?.canViewAllRepairs) {
+    return tickets;
+  }
+
+  // التصفية الافتراضية: العامل يرى فقط أجهزته الخاصة
+  return tickets.filter((t) => t.workerId === currentUser.id);
+};
+
+/**
+ * فلترة عمليات المبيعات حسب المستخدم الحالي
+ */
+export const filterSalesForUser = (
+  sales: QuickSale[],
+  currentUser: WorkerUser
+): QuickSale[] => {
+  if (currentUser.role === 'MANAGER') {
+    return sales;
+  }
+  return sales.filter((s) => s.workerId === currentUser.id);
+};
+                
+    // components/AuditLogView.tsx
+
+import React from 'react';
+import { AuditLog } from '../types';
+
+interface Props {
+  logs: AuditLog[];
+}
+
+export const AuditLogView: React.FC<Props> = ({ logs }) => {
+  return (
+    <div className="max-w-5xl mx-auto space-y-4 text-right p-4" dir="rtl">
+      <div className="border-b border-slate-800 pb-3">
+        <h2 className="text-xl font-bold text-white flex items-center gap-2">
+          <i className="fa-solid fa-user-ninja text-amber-400"></i>
+          سجل التتبع والمراقبة الخفي (Audit Log)
+        </h2>
+        <p className="text-xs text-slate-400">
+          تتبع دقيق لجميع التعديلات والعمليات التي أجراها العمال على التذاكر والأسعار
+        </p>
+      </div>
+
+      <div className="bg-[#131b2e] border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+        {logs.length === 0 ? (
+          <div className="p-8 text-center text-slate-500 text-xs">
+            لا توجد أي تعديلات مسجلة في السجل حتى الآن.
+          </div>
+        ) : (
+          <div className="divide-y divide-slate-800/80">
+            {logs.map((log) => (
+              <div key={log.id} className="p-4 hover:bg-slate-900/40 transition-colors flex items-start justify-between gap-4">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-emerald-400 text-xs">{log.workerName}</span>
+                    <span className="text-[10px] bg-slate-800 text-slate-300 font-mono px-2 py-0.5 rounded-md">
+                      {log.referenceCode}
+                    </span>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                      {log.actionType}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-300 font-mono leading-relaxed">{log.details}</p>
+                </div>
+
+                <div className="text-left text-[10px] text-slate-500 font-mono whitespace-nowrap">
+                  {log.createdAt}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+                
+                // constants/repairData.ts
+
+export interface BrandData {
+  id: string;
+  name: string;
+  iconClass: string;
+  models: string[];
+}
+
+export interface DefectOption {
+  id: string;
+  titleAr: string;
+  titleEn: string;
+  iconClass: string;
+  colorClass: string;
+}
+
+// 1. قائمة الماركات والموديلات
+export const BRANDS_DATA: BrandData[] = [
+  {
+    id: 'apple',
+    name: 'Apple iPhone',
+    iconClass: 'fa-brands fa-apple',
+    models: [
+      'iPhone 15 Pro Max', 'iPhone 15 Pro', 'iPhone 15',
+      'iPhone 14 Pro Max', 'iPhone 14 Pro', 'iPhone 14',
+      'iPhone 13 Pro Max', 'iPhone 13', 'iPhone 12',
+      'iPhone 11 Pro Max', 'iPhone 11', 'iPhone X/XS',
+      'iPhone 8 Plus', 'iPhone 7/8',
+    ],
+  },
+  {
+    id: 'samsung',
+    name: 'Samsung',
+    iconClass: 'fa-solid fa-[#0a66c2] fa-mobile-screen-button',
+    models: [
+      'Galaxy S24 Ultra', 'Galaxy S23 Ultra', 'Galaxy S22',
+      'Galaxy A54 5G', 'Galaxy A34 5G', 'Galaxy A24',
+      'Galaxy A14', 'Galaxy A04s', 'Galaxy M53',
+      'Galaxy Note 20 Ultra', 'Galaxy Z Fold 5',
+    ],
+  },
+  {
+    id: 'xiaomi',
+    name: 'Xiaomi / Redmi / Poco',
+    iconClass: 'fa-solid fa-bolt text-amber-500',
+    models: [
+      'Redmi Note 13 Pro', 'Redmi Note 12', 'Redmi 12C',
+      'Redmi Note 11', 'Poco X5 Pro', 'Poco F5',
+      'Xiaomi 13T Pro', 'Xiaomi 12', 'Poco M5',
+    ],
+  },
+  {
+    id: 'oppo',
+    name: 'OPPO',
+    iconClass: 'fa-solid fa-[#00a884] fa-mobile',
+    models: [
+      'Reno 10 Pro', 'Reno 8', 'A98 5G', 'A78', 'A58', 'A38', 'A17',
+    ],
+  },
+  {
+    id: 'infinix',
+    name: 'Infinix',
+    iconClass: 'fa-solid fa-microchip text-emerald-400',
+    models: [
+      'Note 30 VIP', 'Note 30', 'Hot 30', 'Hot 30i', 'Smart 7', 'Zero Ultra',
+    ],
+  },
+  {
+    id: 'realme',
+    name: 'Realme',
+    iconClass: 'fa-solid fa-circle-notch text-amber-400',
+    models: [
+      'Realme 11 Pro+', 'Realme C55', 'Realme C53', 'Realme 10', 'Realme C35',
+    ],
+  },
+  {
+    id: 'huawei',
+    name: 'Huawei / Honor',
+    iconClass: 'fa-solid fa-[#ff0000] fa-shield-halved',
+    models: [
+      'P60 Pro', 'Mate 50 Pro', 'Honor X9b', 'Honor 90', 'Honor X8a', 'Y9a',
+    ],
+  },
+];
+
+// 2. قائمة الأعطال المزودة باللوغوهات والأيقونات
+export const DEFECTS_LIST: DefectOption[] = [
+  {
+    id: 'screen',
+    titleAr: 'تغيير الشاشة (Ecran)',
+    titleEn: 'Screen Replacement',
+    iconClass: 'fa-solid fa-mobile-screen',
+    colorClass: 'text-sky-400 bg-sky-500/10 border-sky-500/30',
+  },
+  {
+    id: 'battery',
+    titleAr: 'تغيير البطارية (Batterie)',
+    titleEn: 'Battery Change',
+    iconClass: 'fa-solid fa-battery-half',
+    colorClass: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30',
+  },
+  {
+    id: 'charging',
+    titleAr: 'عطل الشحن / الكونيكتور (Charge/Connecteur)',
+    titleEn: 'Charging Port',
+    iconClass: 'fa-solid fa-plug-circle-bolt',
+    colorClass: 'text-amber-400 bg-amber-500/10 border-amber-500/30',
+  },
+  {
+    id: 'water',
+    titleAr: 'سقوط في الماء (Tombé dans l\'eau)',
+    titleEn: 'Water Damage',
+    iconClass: 'fa-solid fa-droplet',
+    colorClass: 'text-blue-400 bg-blue-500/10 border-blue-500/30',
+  },
+  {
+    id: 'audio',
+    titleAr: 'الميكرو / السماعة (Micro/Haut-parleur)',
+    titleEn: 'Speaker / Mic',
+    iconClass: 'fa-solid fa-volume-high',
+    colorClass: 'text-purple-400 bg-purple-500/10 border-purple-500/30',
+  },
+  {
+    id: 'camera',
+    titleAr: 'الكاميرا (Caméra)',
+    titleEn: 'Camera Issue',
+    iconClass: 'fa-solid fa-camera',
+    colorClass: 'text-rose-400 bg-rose-500/10 border-rose-500/30',
+  },
+  {
+    id: 'motherboard',
+    titleAr: 'كارت مير / ميكرو صيانة (Carte Mère / IC)',
+    titleEn: 'Motherboard IC Repair',
+    iconClass: 'fa-solid fa-microchip',
+    colorClass: 'text-indigo-400 bg-indigo-500/10 border-indigo-500/30',
+  },
+  {
+    id: 'software',
+    titleAr: 'سوفتوير / فلاش / إنكوداج (Software / Flash)',
+    titleEn: 'Software & Unlocking',
+    iconClass: 'fa-solid fa-code',
+    colorClass: 'text-cyan-400 bg-cyan-500/10 border-cyan-500/30',
+  },
+  {
+    id: 'backglass',
+    titleAr: 'الغطاء الخلفي / الزجاج (Vitre Arrière)',
+    titleEn: 'Back Glass Repair',
+    iconClass: 'fa-solid fa-shield',
+    colorClass: 'text-teal-400 bg-teal-500/10 border-teal-500/30',
+  },
+  {
+    id: 'buttons',
+    titleAr: 'أزرار الصوت / التشغيل (Boutons Marche/Vol)',
+    titleEn: 'Power & Volume Buttons',
+    iconClass: 'fa-solid fa-toggle-on',
+    colorClass: 'text-orange-400 bg-orange-500/10 border-orange-500/30',
+  },
+];
+                // components/PhoneIntakeView.tsx
+
+import React, { useState } from 'react';
+import { Customer, RepairTicket, WorkerUser } from '../types';
+import { BRANDS_DATA, DEFECTS_LIST } from '../constants/repairData';
+
+interface Props {
+  currentUser: WorkerUser;
+  existingCustomers: Customer[];
+  onSaveTicket: (ticket: Omit<RepairTicket, 'id' | 'createdAt' | 'netProfit'>) => void;
+}
+
+export const PhoneIntakeView: React.FC<Props> = ({
+  currentUser,
+  existingCustomers,
+  onSaveTicket,
+}) => {
+  // بيانات الزبون
+  const [customerPhone, setCustomerPhone] = useState('');
+  const [customerName, setCustomerName] = useState('');
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
+
+  // بيانات الهاتف
+  const [selectedBrand, setSelectedBrand] = useState(BRANDS_DATA[0].name);
+  const [model, setModel] = useState('');
+  const [selectedDefects, setSelectedDefects] = useState<string[]>([]);
+  const [customDefectNote, setCustomDefectNote] = useState('');
+
+  // البيانات المالية التقديرية
+  const [totalPrice, setTotalPrice] = useState<number | ''>('');
+  const [partsCost, setPartsCost] = useState<number | ''>('');
+
+  // البحث عن زبون موجود بـ رقم الهاتف
+  const handlePhoneChange = (phone: string) => {
+    setCustomerPhone(phone);
+    const found = existingCustomers.find((c) => c.phoneNumber.includes(phone.trim()));
+    if (found && phone.trim().length >= 8) {
+      setCustomerName(found.fullName);
+      setSelectedCustomerId(found.id);
+    } else {
+      setSelectedCustomerId(null);
+    }
+  };
+
+  // إضافة أو إزالة عطل
+  const toggleDefect = (defectTitle: string) => {
+    if (selectedDefects.includes(defectTitle)) {
+      setSelectedDefects(selectedDefects.filter((d) => d !== defectTitle));
+    } else {
+      setSelectedDefects([...selectedDefects, defectTitle]);
+    }
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!customerName || !customerPhone || !model) {
+      alert('المرجو ملء بيانات الزبون، الموديل، والأعطال المحتشدة.');
+      return;
+    }
+
+    if (selectedDefects.length === 0 && !customDefectNote) {
+      alert('المرجو تحديد عطل واحد على الأقل أو كتابة ملاحظة العطل.');
+      return;
+    }
+
+    // توليد كود التذكرة العشوائي المرجعي
+    const refCode = `REP-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+
+    onSaveTicket({
+      referenceCode: refCode,
+      customerId: selectedCustomerId || `cust-${Date.now()}`,
+      customerName,
+      customerPhone,
+      workerId: currentUser.id,
+      workerName: currentUser.fullName,
+      brand: selectedBrand,
+      model,
+      defects: selectedDefects,
+      customDefectNote,
+      totalPrice: Number(totalPrice) || 0,
+      partsCost: Number(partsCost) || 0,
+      status: 'PENDING',
+      parts: [],
+    });
+
+    // إعادة تعيين الاستمارة
+    setCustomerPhone('');
+    setCustomerName('');
+    setModel('');
+    setSelectedDefects([]);
+    setCustomDefectNote('');
+    setTotalPrice('');
+    setPartsCost('');
+    alert('تم تسجيل واستلام الهاتف بنجاح!');
+  };
+
+  const activeBrandData = BRANDS_DATA.find((b) => b.name === selectedBrand) || BRANDS_DATA[0];
+
+  return (
+    <div className="max-w-5xl mx-auto space-y-6 text-right p-4" dir="rtl">
+      {/* الترويسة */}
+      <div className="border-b border-slate-800 pb-4 flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-bold text-white flex items-center gap-2">
+            <i className="fa-solid fa-mobile-button text-emerald-400"></i>
+            استلام جهاز جديد للصيانة
+          </h2>
+          <p className="text-xs text-slate-400">تسجيل بيانات الزبون، العطل، وثمن الإصلاح التقديري</p>
+        </div>
+        <span className="text-xs bg-slate-800 text-slate-300 px-3 py-1.5 rounded-xl border border-slate-700">
+          المستلم: <strong className="text-emerald-400">{currentUser.fullName}</strong>
+        </span>
+      </div>
+
+      <form onSubmit={handleSubmit} className="space-y-6">
+        {/* القسم 1: بيانات الزبون */}
+        <div className="bg-[#131b2e] border border-slate-800 rounded-2xl p-5 space-y-4">
+          <h3 className="text-sm font-bold text-slate-200 flex items-center gap-2">
+            <i className="fa-solid fa-user text-amber-400"></i>
+            1. معلومات الزبون
+          </h3>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs text-slate-400 mb-1">رقم هاتف الزبون:</label>
+              <input
+                type="text"
+                value={customerPhone}
+                onChange={(e) => handlePhoneChange(e.target.value)}
+                placeholder="0612345678"
+                className="w-full bg-[#0b0f19] border border-slate-700 rounded-xl p-3 text-white font-mono text-xs focus:outline-none focus:border-emerald-500"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs text-slate-400 mb-1">الاسم الكامل للزبون:</label>
+              <input
+                type="text"
+                value={customerName}
+                onChange={(e) => setCustomerName(e.target.value)}
+                placeholder="اسم الزبون"
+                className="w-full bg-[#0b0f19] border border-slate-700 rounded-xl p-3 text-white text-xs focus:outline-none focus:border-emerald-500"
+                required
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* القسم 2: الماركة والموديل */}
+        <div className="bg-[#131b2e] border border-slate-800 rounded-2xl p-5 space-y-4">
+          <h3 className="text-sm font-bold text-slate-200 flex items-center gap-2">
+            <i className="fa-solid fa-mobile-retro text-emerald-400"></i>
+            2. تحديد الماركة والموديل الأصلي
+          </h3>
+
+          {/* اختيار الماركة */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
+            {BRANDS_DATA.map((brand) => (
+              <button
+                key={brand.id}
+                type="button"
+                onClick={() => {
+                  setSelectedBrand(brand.name);
+                  setModel('');
+                }}
+                className={`p-3 rounded-xl border text-center transition-all flex flex-col items-center gap-1 ${
+                  selectedBrand === brand.name
+                    ? 'bg-emerald-500/10 border-emerald-500 text-emerald-400 shadow-md shadow-emerald-500/10'
+                    : 'bg-[#0b0f19] border-slate-800 text-slate-400 hover:border-slate-700'
+                }`}
+              >
+                <i className={`${brand.iconClass} text-lg mb-1`}></i>
+                <span className="text-[11px] font-bold block truncate w-full">{brand.name}</span>
+              </button>
+            ))}
+          </div>
+
+          {/* اختيار الموديل من القائمة السريعة أو كتابته */}
+          <div className="space-y-2 pt-2">
+            <label className="block text-xs text-slate-400">اختر الموديل أو اكتبه يدويًا:</label>
+            <input
+              type="text"
+              value={model}
+              onChange={(e) => setModel(e.target.value)}
+              placeholder="مثال: Galaxy S22 / iPhone 13 / Redmi Note 12..."
+              className="w-full bg-[#0b0f19] border border-slate-700 rounded-xl p-3 text-white text-xs font-mono focus:outline-none focus:border-emerald-500"
+              required
+            />
+
+            {/* اقتراحات الموديلات للماركة المختارة */}
+            <div className="flex flex-wrap gap-1.5 pt-1">
+              {activeBrandData.models.map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setModel(m)}
+                  className="bg-slate-800/80 hover:bg-slate-700 text-slate-300 text-[10px] px-2.5 py-1 rounded-lg border border-slate-700/60 font-mono"
+                >
+                  {m}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* القسم 3: تحديد الأعطال التفاعلي باللوغوهات والأيقونات */}
+        <div className="bg-[#131b2e] border border-slate-800 rounded-2xl p-5 space-y-4">
+          <h3 className="text-sm font-bold text-slate-200 flex items-center gap-2">
+            <i className="fa-solid fa-wrench text-sky-400"></i>
+            3. تحديد الأعطال الملحوظة (باللوغو والأيقونات)
+          </h3>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {DEFECTS_LIST.map((defect) => {
+              const isSelected = selectedDefects.includes(defect.titleAr);
+              return (
+                <div
+                  key={defect.id}
+                  onClick={() => toggleDefect(defect.titleAr)}
+                  className={`p-3.5 rounded-xl border cursor-pointer transition-all flex items-center justify-between ${
+                    isSelected
+                      ? 'bg-emerald-500/10 border-emerald-500 text-white shadow-md'
+                      : 'bg-[#0b0f19] border-slate-800/90 text-slate-400 hover:border-slate-700'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={`w-9 h-9 rounded-lg flex items-center justify-center border ${defect.colorClass}`}
+                    >
+                      <i className={`${defect.iconClass} text-sm`}></i>
+                    </div>
+                    <div>
+                      <span className="text-xs font-bold block text-slate-200">{defect.titleAr}</span>
+                      <span className="text-[10px] text-slate-500 block font-mono">{defect.titleEn}</span>
+                    </div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={() => {}} // يتم التحكم عبر الكليك في الحاوية
+                    className="accent-emerald-500 w-4 h-4 rounded cursor-pointer"
+                  />
+                </div>
+              );
+            })}
+          </div>
+
+          <div>
+            <label className="block text-xs text-slate-400 mb-1">ملاحظات أعطال إضافية أو وصف خاص:</label>
+            <textarea
+              rows={2}
+              value={customDefectNote}
+              onChange={(e) => setCustomDefectNote(e.target.value)}
+              placeholder="مثال: الخدوش في الهيكل، الهاتف لا يتوفر على كود الشاشة..."
+              className="w-full bg-[#0b0f19] border border-slate-700 rounded-xl p-3 text-white text-xs focus:outline-none focus:border-emerald-500"
+            />
+          </div>
+        </div>
+
+        {/* القسم 4: الثمن التقديري وحفظ التذكرة */}
+        <div className="bg-[#131b2e] border border-slate-800 rounded-2xl p-5 space-y-4">
+          <h3 className="text-sm font-bold text-slate-200 flex items-center gap-2">
+            <i className="fa-solid fa-coins text-amber-400"></i>
+            4. الاتفاق المالي (د.م.)
+          </h3>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs text-slate-400 mb-1">واجب الإصلاح الإجمالي للزبون (د.م.):</label>
+              <input
+                type="number"
+                value={totalPrice}
+                onChange={(e) => setTotalPrice(e.target.value ? Number(e.target.value) : '')}
+                placeholder="مثال: 300"
+                className="w-full bg-[#0b0f19] border border-slate-700 rounded-xl p-3 text-emerald-400 font-mono font-bold text-sm focus:outline-none focus:border-emerald-500"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs text-slate-400 mb-1">التكلفة المبدئية لقطع الغيار (إن وجدت):</label>
+              <input
+                type="number"
+                value={partsCost}
+                onChange={(e) => setPartsCost(e.target.value ? Number(e.target.value) : '')}
+                placeholder="مثال: 100"
+                className="w-full bg-[#0b0f19] border border-slate-700 rounded-xl p-3 text-rose-400 font-mono font-bold text-sm focus:outline-none focus:border-emerald-500"
+              />
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            className="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold py-3.5 rounded-xl text-sm shadow-xl shadow-emerald-500/20 transition-all flex items-center justify-center gap-2 mt-4"
+          >
+            <i className="fa-solid fa-check-circle text-base"></i>
+            حفظ التذكرة واستلام الجهاز
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+};
+                // components/TwoPartTicketPrintView.tsx
+
+import React from 'react';
+import { RepairTicket } from '../types';
+
+interface Props {
+  ticket: RepairTicket;
+  shopName?: string;
+  shopPhone?: string;
+  shopAddress?: string;
+  onClose: () => void;
+}
+
+export const TwoPartTicketPrintView: React.FC<Props> = ({
+  ticket,
+  shopName = 'محل الصيانة الرقمية',
+  shopPhone = '0600000000',
+  shopAddress = 'شارع الحسن الثاني، المغرب',
+  onClose,
+}) => {
+  const handlePrint = () => {
+    window.print();
+  };
+
+  const netProfit = ticket.totalPrice - ticket.partsCost;
+
+  return (
+    <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-50 overflow-y-auto p-4 text-right" dir="rtl">
+      {/* شريط أدوات التحكم والطباعة */}
+      <div className="max-w-4xl mx-auto mb-4 flex items-center justify-between bg-[#131b2e] p-4 rounded-2xl border border-slate-800 print:hidden">
+        <div>
+          <h3 className="text-sm font-bold text-white">معاينة وصل استلام الصيانة (ورقتين)</h3>
+          <p className="text-xs text-slate-400">جاهز للطباعة على ورقة A4 أو A5 مقسومة</p>
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={handlePrint}
+            className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold px-4 py-2 rounded-xl text-xs flex items-center gap-2 shadow-lg shadow-emerald-500/20"
+          >
+            <i className="fa-solid fa-print"></i>
+            طباعة الوصل المزدوج
+          </button>
+          <button
+            onClick={onClose}
+            className="bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold px-4 py-2 rounded-xl text-xs"
+          >
+            إغلاق
+          </button>
+        </div>
+      </div>
+
+      {/* الحاوية القابلة للطباعة */}
+      <div className="max-w-4xl mx-auto bg-white text-slate-900 rounded-2xl p-6 space-y-6 shadow-2xl print:p-2 print:shadow-none print:m-0 print:w-full">
+        {/* ================= 1. ورقة الزبون (CLIENT SLIP) ================= */}
+        <div className="border-2 border-dashed border-slate-400 p-4 rounded-xl space-y-3 relative">
+          <span className="absolute -top-3 right-4 bg-slate-900 text-white text-[10px] px-3 py-0.5 rounded-full font-bold">
+            نسخة الزبون (Client Copy)
+          </span>
+
+          <div className="flex justify-between items-start border-b pb-3 border-slate-300">
+            <div>
+              <h1 className="text-base font-extrabold text-slate-900">{shopName}</h1>
+              <p className="text-[11px] text-slate-600">{shopAddress} - هاتف: {shopPhone}</p>
+            </div>
+            <div className="text-left font-mono">
+              <span className="block text-xs font-bold text-emerald-700">{ticket.referenceCode}</span>
+              <span className="block text-[10px] text-slate-500">{ticket.createdAt}</span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
+            <div>
+              <span className="text-slate-500 block text-[10px]">اسم الزبون:</span>
+              <strong className="text-slate-800">{ticket.customerName}</strong>
+            </div>
+            <div>
+              <span className="text-slate-500 block text-[10px]">الهاتف/الموديل:</span>
+              <strong className="text-slate-800 font-mono">{ticket.brand} {ticket.model}</strong>
+            </div>
+            <div>
+              <span className="text-slate-500 block text-[10px]">المبلغ الإجمالي المتفق عليه:</span>
+              <strong className="text-emerald-700 font-mono text-sm">{ticket.totalPrice} د.م.</strong>
+            </div>
+          </div>
+
+          <div className="bg-slate-50 p-2 rounded border border-slate-200 text-xs">
+            <span className="text-slate-500 block text-[10px] font-bold">الأعطال المصرح بها:</span>
+            <div className="flex flex-wrap gap-1 mt-1">
+              {ticket.defects.map((d, idx) => (
+                <span key={idx} className="bg-slate-200 text-slate-800 px-2 py-0.5 rounded text-[10px]">
+                  {d}
+                </span>
+              ))}
+            </div>
+            {ticket.customDefectNote && (
+              <p className="text-[10px] text-slate-600 mt-1">{ticket.customDefectNote}</p>
+            )}
+          </div>
+
+          <p className="text-[9px] text-slate-500 text-center pt-1 border-t border-slate-200">
+            * تنبيه: المحل غير مسؤول عن الأجهزة التي تتعدى مدة إيداعها 30 يوماً. المرجو إحضار هذا الوصل عند الاستلام.
+          </p>
+        </div>
+
+        {/* خط الفصل للقص عند الطباعة */}
+        <div className="border-b-2 border-dashed border-slate-400 my-4 text-center relative print:my-2">
+          <span className="bg-white text-slate-400 text-[10px] px-2 relative -top-2 font-mono">
+            ✂ خط القص (Découpage) ✂
+          </span>
+        </div>
+
+        {/* ================= 2. ورقة المحل الداخلية (SHOP SLIP) ================= */}
+        <div className="border-2 border-slate-900 p-4 rounded-xl space-y-3 bg-slate-50 relative">
+          <span className="absolute -top-3 right-4 bg-emerald-600 text-white text-[10px] px-3 py-0.5 rounded-full font-bold">
+            نسخة المحل السرية (Shop Internal Copy)
+          </span>
+
+          <div className="flex justify-between items-start border-b pb-2 border-slate-300">
+            <div>
+              <span className="text-xs font-bold text-slate-900">تذكرة الصيانة الداخلية</span>
+              <span className="block text-[10px] text-slate-600">المستلم: <strong>{ticket.workerName}</strong></span>
+            </div>
+            <div className="text-left font-mono">
+              <span className="block text-xs font-bold text-slate-900">{ticket.referenceCode}</span>
+              <span className="block text-[10px] text-slate-500">{ticket.createdAt}</span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+            <div>
+              <span className="text-slate-500 block text-[10px]">الزبون:</span>
+              <strong className="text-slate-800">{ticket.customerName} ({ticket.customerPhone})</strong>
+            </div>
+            <div>
+              <span className="text-slate-500 block text-[10px]">الموديل:</span>
+              <strong className="text-slate-800 font-mono">{ticket.brand} {ticket.model}</strong>
+            </div>
+            <div>
+              <span className="text-slate-500 block text-[10px]">واجب الزبون:</span>
+              <strong className="text-slate-900 font-mono">{ticket.totalPrice} د.م.</strong>
+            </div>
+            {/* التكلفة والربح السري للمحل والمدير */}
+            <div className="bg-emerald-100 p-1.5 rounded border border-emerald-300">
+              <span className="text-emerald-800 block text-[10px]">تكلفة السلعة: {ticket.partsCost} د.م.</span>
+              <span className="text-emerald-950 font-bold block text-xs">صافي الربح: {netProfit} د.م.</span>
+            </div>
+          </div>
+
+          <div className="text-xs space-y-1">
+            <span className="text-slate-500 block text-[10px] font-bold">الأعطال المسجلة:</span>
+            <p className="text-slate-800 font-medium text-[11px]">{ticket.defects.join(' | ')}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+// components/QuickSalesView.tsx
+
+import React, { useState } from 'react';
+import { QuickSale, WorkerUser } from '../types';
+
+interface Props {
+  currentUser: WorkerUser;
+  onRecordSale: (sale: Omit<QuickSale, 'id' | 'createdAt' | 'netProfit'>) => void;
+  recentSales: QuickSale[];
+}
+
+export const QuickSalesView: React.FC<Props> = ({
+  currentUser,
+  onRecordSale,
+  recentSales,
+}) => {
+  const [itemName, setItemName] = useState('');
+  const [category, setCategory] = useState('شاحن / كابل');
+  const [sellPrice, setSellPrice] = useState<number | ''>('');
+  const [buyCost, setBuyCost] = useState<number | ''>('');
+  const [quantity, setQuantity] = useState(1);
+
+  // المنتجات السريعة الشائعة
+  const QUICK_PRESETS = [
+    { name: 'Ecran Incell / OLED', category: 'قطع غيار', price: 200, cost: 120 },
+    { name: 'Incassable (زجاج واقي)', category: 'إكسسوارات', price: 25, cost: 5 },
+    { name: 'Pochette (غلاف)', category: 'إكسسوارات', price: 30, cost: 10 },
+    { name: 'Chargeur Rapide', category: 'شاحن / كابل', price: 80, cost: 35 },
+    { name: 'Câble Type-C / iPhone', category: 'شاحن / كابل', price: 30, cost: 10 },
+    { name: 'Ecouteur Bluetooth', category: 'صوتيات', price: 120, cost: 60 },
+  ];
+
+  const handleApplyPreset = (preset: typeof QUICK_PRESETS[0]) => {
+    setItemName(preset.name);
+    setCategory(preset.category);
+    setSellPrice(preset.price);
+    setBuyCost(preset.cost);
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!itemName || !sellPrice) {
+      alert('المرجو كتابة اسم المنتج وثمن البيع.');
+      return;
+    }
+
+    onRecordSale({
+      itemName,
+      category,
+      sellPrice: Number(sellPrice) * quantity,
+      buyCost: (Number(buyCost) || 0) * quantity,
+      quantity,
+      workerId: currentUser.id,
+      workerName: currentUser.fullName,
+    });
+
+    // إعادة تعيين
+    setItemName('');
+    setSellPrice('');
+    setBuyCost('');
+    setQuantity(1);
+    alert('تم تسجيل عملية البيع السريعة وإضافتها لأرباحك!');
+  };
+
+  return (
+    <div className="max-w-6xl mx-auto space-y-6 text-right p-4" dir="rtl">
+      {/* الترويسة */}
+      <div className="border-b border-slate-800 pb-4 flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-bold text-white flex items-center gap-2">
+            <i className="fa-solid fa-bolt text-amber-400"></i>
+            قسم المبيعات السريعة (بدون وصل)
+          </h2>
+          <p className="text-xs text-slate-400">بيع الإكسسوارات وقطع الغيار المباشرة في القاصة فورياً</p>
+        </div>
+        <span className="text-xs bg-slate-800 text-slate-300 px-3 py-1.5 rounded-xl border border-slate-700">
+          البائع الحالي: <strong className="text-amber-400">{currentUser.fullName}</strong>
+        </span>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* استمارة تسجيل البيع */}
+        <div className="lg:col-span-2 space-y-4">
+          {/* الاختيارات السريعة المسبقة */}
+          <div className="bg-[#131b2e] border border-slate-800 rounded-2xl p-4 space-y-2">
+            <span className="text-xs font-bold text-slate-300 block">اختيارات سريعة شائعة:</span>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {QUICK_PRESETS.map((preset, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => handleApplyPreset(preset)}
+                  className="bg-[#0b0f19] hover:border-emerald-500/50 border border-slate-800 p-2.5 rounded-xl text-right transition-all group"
+                >
+                  <span className="text-xs font-bold text-slate-200 block truncate group-hover:text-emerald-400">
+                    {preset.name}
+                  </span>
+                  <span className="text-[10px] text-slate-500 font-mono block">
+                    {preset.price} د.م. (التكلفة: {preset.cost} د.م.)
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <form onSubmit={handleSubmit} className="bg-[#131b2e] border border-slate-800 rounded-2xl p-5 space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">اسم المنتج / الخدمة السريعة:</label>
+                <input
+                  type="text"
+                  value={itemName}
+                  onChange={(e) => setItemName(e.target.value)}
+                  placeholder="مثال: شاحن سامسونج الأصلي"
+                  className="w-full bg-[#0b0f19] border border-slate-700 rounded-xl p-3 text-white text-xs focus:outline-none focus:border-emerald-500"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">الصنف:</label>
+                <select
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value)}
+                  className="w-full bg-[#0b0f19] border border-slate-700 rounded-xl p-3 text-white text-xs focus:outline-none focus:border-emerald-500"
+                >
+                  <option value="إكسسوارات">إكسسوارات</option>
+                  <option value="شاحن / كابل">شاحن / كابل</option>
+                  <option value="قطع غيار">قطع غيار</option>
+                  <option value="صوتيات">صوتيات</option>
+                  <option value="هواتف مستعملة">هواتف مستعملة</option>
+                  <option value="خدمات متنوعة">خدمات متنوعة</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">الكمية:</label>
+                <input
+                  type="number"
+                  min="1"
+                  value={quantity}
+                  onChange={(e) => setQuantity(Number(e.target.value))}
+                  className="w-full bg-[#0b0f19] border border-slate-700 rounded-xl p-3 text-white font-mono text-xs focus:outline-none focus:border-emerald-500"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">ثمن البيع للقطعة (د.م.):</label>
+                <input
+                  type="number"
+                  value={sellPrice}
+                  onChange={(e) => setSellPrice(e.target.value ? Number(e.target.value) : '')}
+                  placeholder="80"
+                  className="w-full bg-[#0b0f19] border border-slate-700 rounded-xl p-3 text-emerald-400 font-mono font-bold text-xs focus:outline-none focus:border-emerald-500"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">تكلفة الشراء (د.م.):</label>
+                <input
+                  type="number"
+                  value={buyCost}
+                  onChange={(e) => setBuyCost(e.target.value ? Number(e.target.value) : '')}
+                  placeholder="35"
+                  className="w-full bg-[#0b0f19] border border-slate-700 rounded-xl p-3 text-rose-400 font-mono text-xs focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              className="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold py-3.5 rounded-xl text-xs shadow-lg shadow-emerald-500/20 transition-all flex items-center justify-center gap-2"
+            >
+              <i className="fa-solid fa-cart-plus text-sm"></i>
+              تسجيل المبيعة وحفظ الربح
+            </button>
+          </form>
+        </div>
+
+        {/* سجل المبيعات السريعة الحديثة */}
+        <div className="bg-[#131b2e] border border-slate-800 rounded-2xl p-4 space-y-3">
+          <h3 className="text-sm font-bold text-white border-b border-slate-800 pb-2 flex items-center justify-between">
+            <span>آخر المبيعات السريعة</span>
+            <span className="text-[10px] text-slate-400 font-mono">{recentSales.length} عملية</span>
+          </h3>
+
+          <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
+            {recentSales.length === 0 ? (
+              <p className="text-center text-xs text-slate-500 py-6">لا توجد مبيعات سريعة حتى الآن.</p>
+            ) : (
+              recentSales.slice(0, 10).map((sale) => (
+                <div key={sale.id} className="bg-[#0b0f19] border border-slate-800/80 p-3 rounded-xl space-y-1">
+                  <div className="flex items-center justify-between text-xs">
+                    <strong className="text-slate-200">{sale.itemName} x{sale.quantity}</strong>
+                    <span className="font-mono text-emerald-400 font-bold">{sale.sellPrice} د.م.</span>
+                  </div>
+                  <div className="flex items-center justify-between text-[10px] text-slate-500 font-mono">
+                    <span>البائع: {sale.workerName}</span>
+                    <span className="text-cyan-400">الربح: +{sale.netProfit} د.م.</span>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+// components/InventoryAndDebtsView.tsx
+
+import React, { useState } from 'react';
+import { InventoryItem, SupplierDebt } from '../types';
+
+interface Props {
+  inventory: InventoryItem[];
+  debts: SupplierDebt[];
+  onAddInventoryItem: (item: Omit<InventoryItem, 'id'>) => void;
+  onAddDebt: (debt: Omit<SupplierDebt, 'id' | 'isPaid'>) => void;
+  onPayDebt: (debtId: string, amountPaid: number) => void;
+}
+
+export const InventoryAndDebtsView: React.FC<Props> = ({
+  inventory,
+  debts,
+  onAddInventoryItem,
+  onAddDebt,
+  onPayDebt,
+}) => {
+  const [activeTab, setActiveTab] = useState<'INVENTORY' | 'DEBTS'>('INVENTORY');
+
+  // نماذج الإضافة
+  const [itemName, setItemName] = useState('');
+  const [quantity, setQuantity] = useState(1);
+  const [costPrice, setCostPrice] = useState<number | ''>('');
+
+  const [supplierName, setSupplierName] = useState('');
+  const [debtAmount, setDebtAmount] = useState<number | ''>('');
+  const [debtNote, setDebtNote] = useState('');
+
+  const handleAddStock = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!itemName || !costPrice) return;
+    onAddInventoryItem({
+      itemName,
+      quantity,
+      costPrice: Number(costPrice),
+    });
+    setItemName('');
+    setQuantity(1);
+    setCostPrice('');
+  };
+
+  const handleAddDebtSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!supplierName || !debtAmount) return;
+    onAddDebt({
+      supplierName,
+      totalAmount: Number(debtAmount),
+      remainingAmount: Number(debtAmount),
+      note: debtNote,
+      dueDate: new Date().toISOString().split('T')[0],
+    });
+    setSupplierName('');
+    setDebtAmount('');
+    setDebtNote('');
+  };
+
+  return (
+    <div className="max-w-6xl mx-auto space-y-6 text-right p-4" dir="rtl">
+      {/* الترويسة والتنقل */}
+      <div className="border-b border-slate-800 pb-4 flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-bold text-white flex items-center gap-2">
+            <i className="fa-solid fa-[#00a884] fa-boxes-stacked text-cyan-400"></i>
+            المخزون والديون (الموردين)
+          </h2>
+          <p className="text-xs text-slate-400">إدارة قطع الغيار والسلع المتوفرة ومتابعة ديون الفورنيسور</p>
+        </div>
+
+        <div className="flex bg-[#0b0f19] p-1 rounded-xl border border-slate-800 text-xs">
+          <button
+            onClick={() => setActiveTab('INVENTORY')}
+            className={`px-4 py-2 rounded-lg font-bold transition-all ${
+              activeTab === 'INVENTORY' ? 'bg-emerald-500 text-slate-950' : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            مخزون قطع الغيار
+          </button>
+          <button
+            onClick={() => setActiveTab('DEBTS')}
+            className={`px-4 py-2 rounded-lg font-bold transition-all ${
+              activeTab === 'DEBTS' ? 'bg-rose-500 text-white' : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            ديون الموردين (الفورنيسور)
+          </button>
+        </div>
+      </div>
+
+      {/* التبويب 1: قطع الغيار والمخزون */}
+      {activeTab === 'INVENTORY' && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <form onSubmit={handleAddStock} className="bg-[#131b2e] border border-slate-800 rounded-2xl p-5 space-y-4">
+            <h3 className="text-sm font-bold text-white border-b border-slate-800 pb-2">إضافة قطعة غيار للمخزون</h3>
+
+            <div>
+              <label className="block text-xs text-slate-400 mb-1">اسم القطعة / الموديل:</label>
+              <input
+                type="text"
+                value={itemName}
+                onChange={(e) => setItemName(e.target.value)}
+                placeholder="مثال: Ecran Samsung A54 Original"
+                className="w-full bg-[#0b0f19] border border-slate-700 rounded-xl p-3 text-white text-xs focus:outline-none focus:border-emerald-500"
+                required
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">الكمية:</label>
+                <input
+                  type="number"
+                  min="1"
+                  value={quantity}
+                  onChange={(e) => setQuantity(Number(e.target.value))}
+                  className="w-full bg-[#0b0f19] border border-slate-700 rounded-xl p-3 text-white font-mono text-xs focus:outline-none focus:border-emerald-500"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">تكلفة الشراء (د.م.):</label>
+                <input
+                  type="number"
+                  value={costPrice}
+                  onChange={(e) => setCostPrice(e.target.value ? Number(e.target.value) : '')}
+                  placeholder="150"
+                  className="w-full bg-[#0b0f19] border border-slate-700 rounded-xl p-3 text-emerald-400 font-mono text-xs focus:outline-none focus:border-emerald-500"
+                  required
+                />
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              className="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold py-3 rounded-xl text-xs shadow-lg shadow-emerald-500/20"
+            >
+              حفظ في المخزون
+            </button>
+          </form>
+
+          {/* جدول المخزون */}
+          <div className="lg:col-span-2 bg-[#131b2e] border border-slate-800 rounded-2xl p-5 overflow-hidden">
+            <h3 className="text-sm font-bold text-white mb-3">قائمة قطع الغيار المتوفرة</h3>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs text-right">
+                <thead className="bg-[#0b0f19] text-slate-400 border-b border-slate-800">
+                  <tr>
+                    <th className="p-3">القطعة</th>
+                    <th className="p-3">الكمية</th>
+                    <th className="p-3">ثمن الشراء</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/80">
+                  {inventory.length === 0 ? (
+                    <tr>
+                      <td colSpan={3} className="text-center py-6 text-slate-500">لا توجد قطع غيار مسجلة.</td>
+                    </tr>
+                  ) : (
+                    inventory.map((item) => (
+                      <tr key={item.id} className="hover:bg-slate-900/40">
+                        <td className="p-3 text-slate-200 font-medium">{item.itemName}</td>
+                        <td className="p-3 font-mono font-bold text-cyan-400">{item.quantity}</td>
+                        <td className="p-3 font-mono text-emerald-400">{item.costPrice} د.م.</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* التبويب 2: ديون الموردين (الفورنيسور) */}
+      {activeTab === 'DEBTS' && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <form onSubmit={handleAddDebtSubmit} className="bg-[#131b2e] border border-slate-800 rounded-2xl p-5 space-y-4">
+            <h3 className="text-sm font-bold text-white border-b border-slate-800 pb-2">تسجيل دين جديد لمورد</h3>
+
+            <div>
+              <label className="block text-xs text-slate-400 mb-1">اسم المورد (Fournisseur):</label>
+              <input
+                type="text"
+                value={supplierName}
+                onChange={(e) => setSupplierName(e.target.value)}
+                placeholder="مثال: شركة درب غلف لقطع الغيار"
+                className="w-full bg-[#0b0f19] border border-slate-700 rounded-xl p-3 text-white text-xs focus:outline-none focus:border-rose-500"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs text-slate-400 mb-1">المبلغ الإجمالي للدين (د.م.):</label>
+              <input
+                type="number"
+                value={debtAmount}
+                onChange={(e) => setDebtAmount(e.target.value ? Number(e.target.value) : '')}
+                placeholder="1200"
+                className="w-full bg-[#0b0f19] border border-slate-700 rounded-xl p-3 text-rose-400 font-mono font-bold text-xs focus:outline-none focus:border-rose-500"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs text-slate-400 mb-1">ملاحظة / تفاصيل الفاتورة:</label>
+              <textarea
+                rows={2}
+                value={debtNote}
+                onChange={(e) => setDebtNote(e.target.value)}
+                placeholder="تفاصيل السلعة المأخوذة بالكريدي..."
+                className="w-full bg-[#0b0f19] border border-slate-700 rounded-xl p-3 text-white text-xs focus:outline-none"
+              />
+            </div>
+
+            <button
+              type="submit"
+              className="w-full bg-rose-500 hover:bg-rose-400 text-white font-bold py-3 rounded-xl text-xs shadow-lg shadow-rose-500/20"
+            >
+              تسجيل الدين
+            </button>
+          </form>
+
+          {/* قائمة الديون والمدفوعات */}
+          <div className="lg:col-span-2 bg-[#131b2e] border border-slate-800 rounded-2xl p-5 space-y-3">
+            <h3 className="text-sm font-bold text-white mb-2">سجل ديون الموردين والتسديد</h3>
+            <div className="space-y-3">
+              {debts.length === 0 ? (
+                <p className="text-center text-xs text-slate-500 py-6">لا توجد أي ديون مسجلة على المحل.</p>
+              ) : (
+                debts.map((d) => (
+                  <div key={d.id} className="bg-[#0b0f19] border border-slate-800 p-4 rounded-xl flex items-center justify-between gap-4">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <strong className="text-white text-xs">{d.supplierName}</strong>
+                        {d.isPaid ? (
+                          <span className="text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full font-bold">
+                            خالص (مسدد)
+                          </span>
+                        ) : (
+                          <span className="text-[10px] bg-rose-500/10 text-rose-400 border border-rose-500/20 px-2 py-0.5 rounded-full font-bold">
+                            باقي سالك
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-slate-400">{d.note}</p>
+                    </div>
+
+                    <div className="text-left font-mono">
+                      <span className="block text-xs text-slate-400">المجموع: {d.totalAmount} د.م.</span>
+                      <strong className="block text-sm text-rose-400">المتبقي: {d.remainingAmount} د.م.</strong>
+
+                      {!d.isPaid && (
+                        <button
+                          onClick={() => {
+                            const pay = prompt(`أدخل المبلغ المؤدى للمورد ${d.supplierName}:`, d.remainingAmount.toString());
+                            if (pay && !isNaN(Number(pay))) {
+                              onPayDebt(d.id, Number(pay));
+                            }
+                          }}
+                          className="mt-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-[10px] font-extrabold px-3 py-1 rounded-lg shadow-md"
+                        >
+                          دفع دفعة
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+                
