@@ -1,1 +1,457 @@
 
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>CircuitFix - Workshop Console</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+
+    <style>
+        body { 
+            font-family: 'Tajawal', sans-serif; 
+            background-color: #0b0f19;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 160 160'%3E%3Cg stroke='%2310b981' stroke-width='0.9' stroke-opacity='0.18' fill='none'%3E%3Cpath d='M0 20h40l20 20h40l20-20h40M20 0v40l20 20v40l-20 20v40M160 140h-40l-20-20h-40l-20 20H0M140 160v-40l-20-20v-40l20-20V0'/%3E%3Ccircle cx='60' cy='40' r='2.5' fill='%2310b981' fill-opacity='0.3'/%3E%3Ccircle cx='100' cy='120' r='2.5' fill='%2310b981' fill-opacity='0.3'/%3E%3Ccircle cx='40' cy='60' r='2.5' fill='%2310b981' fill-opacity='0.3'/%3E%3Ccircle cx='120' cy='100' r='2.5' fill='%2310b981' fill-opacity='0.3'/%3E%3C/g%3E%3C/svg%3E");
+            background-attachment: fixed;
+        }
+        .code-font { font-family: 'JetBrains Mono', monospace; }
+        .glow-emerald { box-shadow: 0 0 15px rgba(16, 185, 129, 0.25); }
+    </style>
+</head>
+<body class="text-slate-200 min-h-screen pb-24 select-none">
+
+    <div id="app">
+        <!-- Top Bar -->
+        <header class="bg-[#111827]/95 backdrop-blur border-b border-slate-800 p-3 sticky top-0 z-40 flex items-center justify-between shadow-xl">
+            <div class="flex items-center gap-2">
+                <button @click="showMenu = !showMenu" class="p-2 text-slate-400 hover:text-white rounded-lg border border-slate-800 bg-[#1a233a]">
+                    <i class="fa-solid fa-bars text-lg"></i>
+                </button>
+                <div class="flex items-center gap-2">
+                    <div class="w-8 h-8 rounded-lg bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 text-sm glow-emerald">
+                        <i class="fa-solid fa-microchip"></i>
+                    </div>
+                    <span class="font-bold text-white tracking-wider text-base">CircuitFix</span>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <div class="relative">
+                    <button @click="showLangDropdown = !showLangDropdown" class="bg-[#1a233a] border border-slate-700 text-xs text-slate-300 px-2.5 py-1.5 rounded-lg flex items-center gap-1.5">
+                        <i class="fa-solid fa-globe text-emerald-400"></i>
+                        <span>{{ currentLang }}</span>
+                        <i class="fa-solid fa-chevron-down text-[10px]"></i>
+                    </button>
+                    <div v-if="showLangDropdown" class="absolute left-0 mt-2 w-36 bg-[#111827] border border-slate-700 rounded-xl shadow-2xl p-1 z-50 text-xs">
+                        <div @click="currentLang = 'العربية (AR)'; showLangDropdown = false" class="p-2 hover:bg-emerald-500/10 hover:text-emerald-400 rounded-lg cursor-pointer flex justify-between items-center">
+                            <span>العربية (AR)</span> <i v-if="currentLang.includes('AR')" class="fa-solid fa-check text-emerald-400"></i>
+                        </div>
+                        <div @click="currentLang = '(FR) Français'; showLangDropdown = false" class="p-2 hover:bg-emerald-500/10 hover:text-emerald-400 rounded-lg cursor-pointer"> (FR) Français</div>
+                        <div @click="currentLang = '(EN) English'; showLangDropdown = false" class="p-2 hover:bg-emerald-500/10 hover:text-emerald-400 rounded-lg cursor-pointer"> (EN) English</div>
+                    </div>
+                </div>
+
+                <button @click="showNewTicketModal = true" class="bg-emerald-500 hover:bg-emerald-400 text-slate-950 px-3 py-1.5 rounded-lg font-bold text-xs flex items-center gap-1 shadow-lg shadow-emerald-500/20">
+                    <i class="fa-solid fa-plus"></i> استلام هاتف
+                </button>
+            </div>
+        </header>
+
+        <!-- Slide Drawer Menu -->
+        <div v-if="showMenu" @click.self="showMenu = false" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex justify-end">
+            <div class="w-72 bg-[#111827] h-full border-r border-slate-800 p-4 space-y-4 overflow-y-auto">
+                <div class="text-xs text-slate-500 uppercase tracking-widest border-b border-slate-800 pb-2">Shop Operations</div>
+                <div class="space-y-1 text-sm font-medium">
+                    <div @click="activeTab = 'dashboard'; showMenu = false" class="p-3 bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 rounded-xl flex justify-between items-center">
+                        <span><i class="fa-solid fa-grip-vertical ml-2"></i> Manager Console</span>
+                        <i class="fa-solid fa-border-all"></i>
+                    </div>
+                    <div @click="activeTab = 'repairs'; showMenu = false" class="p-3 hover:bg-slate-800/60 rounded-xl flex justify-between items-center cursor-pointer">
+                        <span><i class="fa-solid fa-wrench ml-2"></i> تذاكر الإصلاح</span>
+                        <span class="bg-rose-500/20 text-rose-400 text-xs px-2 py-0.5 rounded-full font-bold">3 Urgent</span>
+                    </div>
+                    <div class="p-3 hover:bg-slate-800/60 rounded-xl flex justify-between items-center cursor-pointer text-slate-400">
+                        <span><i class="fa-solid fa-users ml-2"></i> الزبائن</span>
+                    </div>
+                    <div class="p-3 hover:bg-slate-800/60 rounded-xl flex justify-between items-center cursor-pointer text-slate-400">
+                        <span><i class="fa-solid fa-microchip ml-2"></i> القطع والمخزون</span>
+                        <span class="bg-amber-500/20 text-amber-400 text-xs px-2 py-0.5 rounded-full font-bold">2 Low</span>
+                    </div>
+                    <div class="p-3 hover:bg-slate-800/60 rounded-xl flex justify-between items-center cursor-pointer text-slate-400">
+                        <span><i class="fa-solid fa-file-invoice-dollar ml-2"></i> المبيعات والفواتير</span>
+                    </div>
+                    <div class="p-3 hover:bg-slate-800/60 rounded-xl flex justify-between items-center cursor-pointer text-slate-400">
+                        <span><i class="fa-solid fa-chart-line ml-2"></i> التقارير والأرباح</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Workspace -->
+        <main class="p-3 max-w-lg mx-auto space-y-4">
+            <div v-if="activeTab === 'dashboard'" class="space-y-3">
+                <div class="bg-[#131b2e]/90 border border-slate-800 rounded-2xl p-4 text-center space-y-2 relative overflow-hidden backdrop-blur">
+                    <span class="bg-amber-500/10 text-amber-400 border border-amber-500/30 text-[10px] px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider">Manager Operations Console</span>
+                    <h2 class="text-xl font-extrabold text-white">Workshop Overview & Control</h2>
+                    <p class="text-xs text-slate-400 leading-relaxed">Real-time oversight of all technician benches, urgent repair SLA deadlines, inventory levels, and staff permission boundaries.</p>
+                    <div class="flex justify-center gap-2 pt-2">
+                        <button @click="showNewTicketModal = true" class="bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-bold px-4 py-2 rounded-xl flex items-center gap-1 shadow-lg shadow-emerald-500/20">
+                            New Intake <i class="fa-solid fa-plus"></i>
+                        </button>
+                        <button class="bg-[#1a233a] border border-amber-500/30 text-amber-400 text-xs font-bold px-3 py-2 rounded-xl flex items-center gap-1">
+                            Permissions <i class="fa-solid fa-shield-halved"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2.5">
+                    <div class="bg-[#131b2e]/90 border border-slate-800 rounded-2xl p-3 flex flex-col justify-between space-y-2 backdrop-blur">
+                        <div class="flex justify-between items-center">
+                            <div class="w-7 h-7 rounded-lg bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 text-xs"><i class="fa-solid fa-circle-check"></i></div>
+                            <span class="text-xs text-slate-400 font-medium">جاهز للاستلام</span>
+                        </div>
+                        <div class="flex items-baseline justify-between">
+                            <span class="text-xs text-slate-500">devices</span>
+                            <span class="text-2xl font-bold code-font text-cyan-400">1</span>
+                        </div>
+                        <div class="text-[10px] text-slate-500 border-t border-slate-800/80 pt-1">Quality check passed</div>
+                    </div>
+
+                    <div class="bg-[#131b2e]/90 border border-slate-800 rounded-2xl p-3 flex flex-col justify-between space-y-2 backdrop-blur">
+                        <div class="flex justify-between items-center">
+                            <div class="w-7 h-7 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 text-xs"><i class="fa-solid fa-screwdriver-wrench"></i></div>
+                            <span class="text-xs text-slate-400 font-medium uppercase tracking-wider">Active Repairs</span>
+                        </div>
+                        <div class="flex items-baseline justify-between">
+                            <span class="text-xs text-rose-400 font-bold">(3 urgent)</span>
+                            <span class="text-2xl font-bold code-font text-white">5</span>
+                        </div>
+                        <div class="text-[10px] text-slate-500 border-t border-slate-800/80 pt-1">Across all technician stations</div>
+                    </div>
+
+                    <div class="bg-[#131b2e]/90 border border-slate-800 rounded-2xl p-3 flex flex-col justify-between space-y-2 backdrop-blur">
+                        <div class="flex justify-between items-center">
+                            <div class="w-7 h-7 rounded-lg bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-400 text-xs"><i class="fa-solid fa-microchip"></i></div>
+                            <span class="text-xs text-slate-400 font-medium uppercase tracking-wider">Stock Alerts</span>
+                        </div>
+                        <div class="flex items-baseline justify-between">
+                            <span class="text-xs text-slate-500">items low</span>
+                            <span class="text-2xl font-bold code-font text-rose-400">2</span>
+                        </div>
+                        <div class="text-[10px] text-slate-500 border-t border-slate-800/80 pt-1">Below minimum threshold</div>
+                    </div>
+
+                    <div class="bg-[#131b2e]/90 border border-slate-800 rounded-2xl p-3 flex flex-col justify-between space-y-2 backdrop-blur">
+                        <div class="flex justify-between items-center">
+                            <div class="w-7 h-7 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 text-xs"><i class="fa-solid fa-coins"></i></div>
+                            <span class="text-[11px] text-slate-400 font-medium uppercase tracking-wider">Revenue / Profit</span>
+                        </div>
+                        <div>
+                            <div class="flex items-baseline justify-between">
+                                <span class="text-[10px] text-emerald-400 font-bold">+56.7%</span>
+                                <span class="text-xl font-bold code-font text-white">2,630 <span class="text-xs font-normal">د.م</span></span>
+                            </div>
+                        </div>
+                        <div class="text-[10px] text-slate-400 border-t border-slate-800/80 pt-1 flex justify-between">
+                            <span>net profit</span>
+                            <span class="text-emerald-400 font-bold code-font">1,490 د.م</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex justify-between items-center pt-2">
+                    <span class="text-xs font-bold text-slate-300 flex items-center gap-1"><i class="fa-solid fa-fire text-rose-500"></i> Priority & Urgent Repairs Queue</span>
+                    <button @click="activeTab = 'repairs'" class="text-xs text-emerald-400 font-bold flex items-center gap-1">View All (6) <i class="fa-solid fa-arrow-left"></i></button>
+                </div>
+
+                <div class="bg-[#131b2e]/90 border border-slate-800 rounded-2xl p-3 space-y-2.5 backdrop-blur">
+                    <div class="flex justify-between items-center">
+                        <div class="flex gap-1.5">
+                            <span class="bg-rose-500/20 text-rose-400 border border-rose-500/30 text-[10px] px-2 py-0.5 rounded-md font-bold uppercase"><i class="fa-solid fa-calendar-xmark ml-1"></i> Overdue</span>
+                            <span class="bg-rose-600 text-white text-[10px] px-2 py-0.5 rounded-md font-bold flex items-center gap-1"><i class="fa-solid fa-fire"></i> عاجل جداً / طارئ</span>
+                        </div>
+                        <span class="code-font text-xs font-bold text-slate-400">REP-2026-101</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <h3 class="font-bold text-white text-base">Apple iPhone 15 Pro Max</h3>
+                        <i class="fa-solid fa-mobile-screen text-slate-600"></i>
+                    </div>
+                    <p class="text-xs text-slate-400 leading-tight">Liquid exposure in seawater. No power, bootlooping on...</p>
+                    <div class="flex flex-wrap gap-1.5">
+                        <span class="bg-purple-500/10 text-purple-400 border border-purple-500/30 text-[10px] px-2 py-0.5 rounded-lg"><i class="fa-solid fa-microchip ml-1"></i> عطل البوردة (Motherboard)</span>
+                        <span class="bg-blue-500/10 text-blue-400 border border-blue-500/30 text-[10px] px-2 py-0.5 rounded-lg"><i class="fa-solid fa-droplet ml-1"></i> دخول الماء (Water Damage)</span>
+                    </div>
+                </div>
+                                </div>
+              <div v-if="activeTab === 'repairs'" class="space-y-3">
+                <div class="flex justify-between items-center">
+                    <h2 class="font-bold text-white text-lg">جميع تذاكر الصيانة</h2>
+                    <button @click="showNewTicketModal = true" class="bg-emerald-500 text-slate-950 text-xs px-3 py-1.5 rounded-xl font-bold">+ إضافة تذكرة</button>
+                </div>
+                <div v-for="t in repairs" :key="t.id" class="bg-[#131b2e]/90 border border-slate-800 p-4 rounded-2xl space-y-2 backdrop-blur">
+                    <div class="flex justify-between">
+                        <span class="font-bold text-white">{{ t.customerName }}</span>
+                        <span class="code-font text-xs text-emerald-400">{{ t.ticketNumber }}</span>
+                    </div>
+                    <div class="text-xs text-slate-400">{{ t.brand }} {{ t.model }} - <span class="text-amber-400">{{ t.defect }}</span></div>
+                    <div class="flex justify-between items-center pt-2 border-t border-slate-800 text-xs">
+                        <span class="font-bold text-emerald-400 code-font">{{ t.totalCost }} د.م</span>
+                        <button @click="sendWhatsApp(t)" class="bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 px-2.5 py-1 rounded-lg"><i class="fa-brands fa-whatsapp"></i> واتساب</button>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Intake Modal -->
+        <div v-if="showNewTicketModal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-2 overflow-y-auto">
+            <div class="bg-[#0f172a] border border-slate-800 rounded-3xl p-4 w-full max-w-md space-y-4 shadow-2xl my-auto max-h-[92vh] overflow-y-auto text-xs">
+                
+                <div class="flex justify-between items-start border-b border-slate-800 pb-3">
+                    <div>
+                        <h3 class="font-bold text-white text-base">New Repair Intake Ticket</h3>
+                        <p class="text-slate-400 text-[11px]">Register device inspection, customer intake, and assign technician</p>
+                    </div>
+                    <button @click="showNewTicketModal = false" class="text-slate-400 hover:text-white p-1"><i class="fa-solid fa-xmark text-lg"></i></button>
+                </div>
+
+                <!-- Brand & Model Section -->
+                <div class="bg-[#131b2e] border border-slate-800 p-3 rounded-2xl space-y-3">
+                    <div class="text-cyan-400 font-bold flex items-center gap-1.5 code-font">
+                        <i class="fa-solid fa-mobile-screen"></i> 1. اختيار ماركة ونوع وموديل الهاتف (BRAND & MODEL)
+                    </div>
+                    <div>
+                        <label class="text-slate-300 block mb-1">شركة الهاتف / الماركة (Manufacturer / Brand) *</label>
+                        <select v-model="newTicket.brand" class="w-full bg-[#0b0f19] border border-slate-700 rounded-xl p-2.5 text-white font-bold">
+                            <option value="Samsung">Samsung - سامسونج</option>
+                            <option value="Apple">Apple - آبل</option>
+                            <option value="Xiaomi">Xiaomi & Redmi - شاومي وريدمي</option>
+                            <option value="Huawei">Huawei - هواوي</option>
+                        </select>
+                    </div>
+
+                    <div class="flex flex-wrap gap-1.5">
+                        <button v-for="b in ['Samsung (سامسونج)', 'Apple (آبل)', 'Xiaomi (شاومي وريدمي)', 'Huawei (هواوي)', 'Infinix (إنفينيكس)', 'Realme (ريلمي)', 'Oppo (أوبو)', 'Honor (هونور)', 'Tecno (تكنو)']" 
+                                @click="newTicket.brand = b.split(' ')[0]"
+                                :class="newTicket.brand === b.split(' ')[0] ? 'bg-cyan-500 text-slate-950 font-bold' : 'bg-[#1a233a] text-slate-300 border border-slate-700'"
+                                class="px-2.5 py-1 rounded-lg text-[11px] transition">
+                            {{ b }}
+                        </button>
+                    </div>
+
+                    <div>
+                        <label class="text-slate-300 block mb-1">نوع وموديل الهاتف (Model & Generation) *</label>
+                        <input v-model="newTicket.model" type="text" placeholder="مثال: Galaxy J3 (2016) أو اكتب الموديل يدوياً" class="w-full bg-[#0b0f19] border border-slate-700 rounded-xl p-2.5 text-white">
+                    </div>
+
+                    <div class="space-y-1">
+                        <span class="text-amber-400 text-[10px] font-bold"><i class="fa-solid fa-bolt"></i> أشهر موديلات سامسونج بنقرة واحدة:</span>
+                        <div class="flex flex-wrap gap-1">
+                            <button v-for="m in ['Galaxy J3 Pro', 'Galaxy J3 (2016)', 'Galaxy J3 (2017)', 'Galaxy J5 (2015)', 'Galaxy J5 (2016)', 'Galaxy J5 Prime', 'Galaxy J5 Pro (2017)', 'Galaxy J7 (2015)', 'Galaxy J7 (2016)', 'Galaxy J7 Prime']"
+                                    @click="newTicket.model = m"
+                                    :class="newTicket.model === m ? 'bg-cyan-500 text-slate-950 font-bold' : 'bg-[#1a233a] text-slate-300 border border-slate-800'"
+                                    class="px-2 py-1 rounded-lg text-[10px]">
+                                {{ m }}
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="space-y-2 pt-1">
+                        <div>
+                            <label class="text-slate-400 block text-[11px]">Screen Lock / Passcode</label>
+                            <input v-model="newTicket.passcode" type="text" placeholder="رمز القفل أو النمط (مثال: 1928)" class="w-full bg-[#0b0f19] border border-slate-700 rounded-xl p-2 text-white">
+                        </div>
+                        <div>
+                            <label class="text-slate-400 block text-[11px]">IMEI / Serial Number</label>
+                            <input v-model="newTicket.imei" type="text" placeholder="(اختياري) رقم IMEI" class="w-full bg-[#0b0f19] border border-slate-700 rounded-xl p-2 text-white">
+                        </div>
+                        <div>
+                            <label class="text-slate-400 block text-[11px]">Physical Condition Inspection</label>
+                            <input v-model="newTicket.condition" type="text" placeholder="حالة مقبولة، خدوش طفيفة، الشاشة متضررة" class="w-full bg-[#0b0f19] border border-slate-700 rounded-xl p-2 text-slate-300">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Customer Information -->
+                <div class="bg-[#131b2e] border border-slate-800 p-3 rounded-2xl space-y-3">
+                    <div class="flex justify-between items-center">
+                        <span class="text-emerald-400 font-bold code-font">2. معلومات الزبون (CUSTOMER INFORMATION)</span>
+                        <div class="flex bg-[#0b0f19] p-0.5 rounded-lg border border-slate-700">
+                            <button @click="isNewClient = false" :class="!isNewClient ? 'bg-slate-700 text-white' : 'text-slate-400'" class="px-2 py-0.5 rounded text-[10px]">زبون مسجل</button>
+                            <button @click="isNewClient = true" :class="isNewClient ? 'bg-emerald-500 text-slate-950 font-bold' : 'text-slate-400'" class="px-2 py-0.5 rounded text-[10px]">زبون جديد +</button>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="text-slate-300 block mb-1">Phone Number (رقم هاتف الزبون) *</label>
+                        <input v-model="newTicket.phone" type="text" placeholder="0600000000 أو 212+" class="w-full bg-[#0b0f19] border border-slate-700 rounded-xl p-2.5 text-white">
+                    </div>
+                    <div>
+                        <label class="text-slate-300 block mb-1">Full Name (اسم الزبون) *</label>
+                        <input v-model="newTicket.customerName" type="text" placeholder="مثال: يوسف بناني" class="w-full bg-[#0b0f19] border border-slate-700 rounded-xl p-2.5 text-white">
+                    </div>
+                    <div class="flex items-center gap-2 pt-1">
+                        <input type="checkbox" id="waAlert" v-model="newTicket.sendWa" class="accent-emerald-500 w-4 h-4 rounded">
+                        <label for="waAlert" class="text-emerald-400 font-bold">فتح واتساب لإشعار الزبون فور حفظ التذكرة</label>
+                    </div>
+                </div>
+
+                <!-- Defects Buttons -->
+                <div class="bg-[#131b2e] border border-slate-800 p-3 rounded-2xl space-y-2">
+                    <div class="text-cyan-400 font-bold code-font">3. الأعطال والمشاكل التقنية المكتشفة (تشخيص الأعطال)</div>
+                    <div class="grid grid-cols-1 gap-1.5">
+                        <button v-for="d in [
+                            { name: 'عطل الشاشة (Screen / OLED)', icon: 'fa-mobile-button', color: 'border-emerald-500/50 text-emerald-400 bg-emerald-500/10' },
+                            { name: 'عطل الشحن (Charging Port)', icon: 'fa-bolt', color: 'border-amber-500/50 text-amber-400 bg-amber-500/10' },
+                            { name: 'عطل البطارية (Battery Drain / Swelling)', icon: 'fa-battery-quarter', color: 'border-teal-500/50 text-teal-400 bg-teal-500/10' },
+                            { name: 'دخول الماء والأكسدة (Water / Liquid Damage)', icon: 'fa-droplet', color: 'border-blue-500/50 text-blue-400 bg-blue-500/10' },
+                            { name: 'عطل البوردة / مايكرو-تلحيم (Logic Board)', icon: 'fa-microchip', color: 'border-purple-500/50 text-purple-400 bg-purple-500/10' },
+                            { name: 'عطل الكاميرا والعدسة (Camera / Lens Glass)', icon: 'fa-camera', color: 'border-rose-500/50 text-rose-400 bg-rose-500/10' },
+                            { name: 'الزجاج الخلفي والإطار (Back Glass / Housing)', icon: 'fa-layer-group', color: 'border-slate-500/50 text-slate-300 bg-slate-800/40' },
+                            { name: 'عطل الصوت والمايك (Audio / Speaker / Mic)', icon: 'fa-volume-high', color: 'border-emerald-500/50 text-emerald-300 bg-emerald-900/20' },
+                            { name: 'عطل البصمة / الفيس أيدي (FaceID / Biometrics)', icon: 'fa-fingerprint', color: 'border-indigo-500/50 text-indigo-400 bg-indigo-500/10' },
+                            { name: 'سوفتوير وتوقف على الشعار (Software / Bootloop)', icon: 'fa-arrows-rotate', color: 'border-sky-500/50 text-sky-400 bg-sky-500/10' },
+                            { name: 'عطل الشبكة والواي فاي (Network / Wi-Fi)', icon: 'fa-wifi', color: 'border-blue-600/50 text-blue-300 bg-blue-900/20' }
+                        ]" 
+                        @click="toggleDefect(d.name)"
+                        :class="selectedDefects.includes(d.name) ? 'ring-2 ring-emerald-400 font-bold' : ''"
+                        class="p-2.5 rounded-xl border flex items-center justify-between transition text-right" :class="d.color">
+                            <span>{{ d.name }}</span>
+                            <i :class="'fa-solid ' + d.icon"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Financial Calculation Box -->
+                <div class="bg-[#131b2e] border border-slate-800 p-3 rounded-2xl space-y-3">
+                    <div class="text-amber-400 font-bold code-font">ملخص الحساب وصافي ربح اليد العاملة</div>
+                    <div>
+                        <label class="text-slate-300 block mb-1">1. ثمن الإصلاح الإجمالي للزبون (د.م)</label>
+                        <input v-model.number="newTicket.totalCost" type="number" placeholder="450" class="w-full bg-[#0b0f19] border border-slate-700 rounded-xl p-2.5 text-white font-bold text-base code-font">
+                    </div>
+                    <div>
+                        <label class="text-slate-300 block mb-1">2. مجموع ثمن شراء قطع الغيار (د.م)</label>
+                        <input v-model.number="newTicket.partsCost" type="number" placeholder="0" class="w-full bg-[#0b0f19] border border-slate-700 rounded-xl p-2.5 text-white code-font">
+                    </div>
+                    <div class="bg-emerald-500/10 border border-emerald-500/40 p-3 rounded-xl flex justify-between items-center text-emerald-400 font-bold text-sm">
+                        <span>3. صافي ربح اليد العاملة:</span>
+                        <span class="text-lg code-font">= {{ (newTicket.totalCost || 0) - (newTicket.partsCost || 0) }} د.م</span>
+                    </div>
+                </div>
+
+                <!-- Priority & Assignee -->
+                <div class="bg-[#131b2e] border border-slate-800 p-3 rounded-2xl space-y-3">
+                    <div>
+                        <label class="text-slate-300 block mb-1">Priority Level (درجة الأولوية)</label>
+                        <select v-model="newTicket.priority" class="w-full bg-[#0b0f19] border border-slate-700 rounded-xl p-2.5 text-amber-400 font-bold">
+                            <option value="عادية">أولوية عادية</option>
+                            <option value="عالية">أولوية عالية ⚠️</option>
+                            <option value="طارئ جداً">عاجل جداً / طارئ 🔥</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-slate-300 block mb-1">Assign Technician (تعيين الفني)</label>
+                        <select v-model="newTicket.technician" class="w-full bg-[#0b0f19] border border-slate-700 rounded-xl p-2.5 text-white">
+                            <option value="Marcus Vance (Master)">Marcus Vance (Master)</option>
+                            <option value="أحمد التقني">أحمد التقني</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-slate-300 block mb-1">Delivery Due Date (تاريخ التسليم المتوقع)</label>
+                        <input v-model="newTicket.dueDate" type="text" placeholder="11/09/2026, 16:00" class="w-full bg-[#0b0f19] border border-slate-700 rounded-xl p-2.5 text-white code-font">
+                    </div>
+                </div>
+
+                <button @click="saveNewTicket" class="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold p-3 rounded-2xl text-sm shadow-lg shadow-emerald-500/20">
+                    <i class="fa-solid fa-check-circle ml-1"></i> حفظ وتأكيد التذكرة
+                </button>
+            </div>
+        </div>
+
+        <!-- Bottom Navigation Bar -->
+        <nav class="fixed bottom-0 inset-x-0 bg-[#0f172a]/95 backdrop-blur border-t border-slate-800 z-40 p-1.5 flex justify-around text-[10px]">
+            <button @click="activeTab = 'dashboard'" :class="activeTab === 'dashboard' ? 'text-emerald-400 font-bold' : 'text-slate-400'" class="flex flex-col items-center gap-1">
+                <i class="fa-solid fa-border-all text-base"></i> الرئيسية
+            </button>
+            <button @click="activeTab = 'repairs'" :class="activeTab === 'repairs' ? 'text-emerald-400 font-bold' : 'text-slate-400'" class="flex flex-col items-center gap-1">
+                <i class="fa-solid fa-wrench text-base"></i> تذاكر الإصلاح
+            </button>
+            <button class="text-slate-400 flex flex-col items-center gap-1">
+                <i class="fa-solid fa-users text-base"></i> الزبائن
+            </button>
+            <button class="text-slate-400 flex flex-col items-center gap-1">
+                <i class="fa-solid fa-microchip text-base"></i> القطع
+            </button>
+            <button @click="showMenu = true" class="text-slate-400 flex flex-col items-center gap-1">
+                <i class="fa-solid fa-ellipsis text-base"></i> المزيد
+            </button>
+        </nav>
+    </div>
+        <script>
+        const { createApp } = Vue;
+
+        createApp({
+            data() {
+                return {
+                    activeTab: 'dashboard',
+                    showMenu: false,
+                    showLangDropdown: false,
+                    showNewTicketModal: false,
+                    currentLang: 'العربية (AR)',
+                    isNewClient: true,
+                    selectedDefects: ['عطل الشاشة (Screen / OLED)'],
+                    repairs: [],
+                    newTicket: {
+                        customerName: '',
+                        phone: '',
+                        brand: 'Samsung',
+                        model: 'Galaxy J3 (2016)',
+                        passcode: '1928',
+                        imei: '',
+                        condition: 'حالة مقبولة، خدوش طفيفة، الشاشة متضررة',
+                        totalCost: 450,
+                        partsCost: 0,
+                        priority: 'عالية',
+                        technician: 'Marcus Vance (Master)',
+                        dueDate: '11/09/2026, 16:00',
+                        sendWa: true
+                    }
+                }
+            },
+            methods: {
+                toggleDefect(defect) {
+                    const idx = this.selectedDefects.indexOf(defect);
+                    if (idx > -1) {
+                        this.selectedDefects.splice(idx, 1);
+                    } else {
+                        this.selectedDefects.push(defect);
+                    }
+                },
+                saveNewTicket() {
+                    if (!this.newTicket.customerName || !this.newTicket.phone) {
+                        alert('المرجو كتابة اسم الزبون ورقم الهاتف!');
+                        return;
+                    }
+                    const ticket = {
+                        id: Date.now(),
+                        ticketNumber: 'REP-2026-' + Math.floor(100 + Math.random() * 900),
+                        defect: this.selectedDefects.join('، ') || 'تشخيص عام',
+                        ...this.newTicket
+                    };
+                    this.repairs.unshift(ticket);
+                    if (this.newTicket.sendWa) {
+                        this.sendWhatsApp(ticket);
+                    }
+                    this.showNewTicketModal = false;
+                },
+                sendWhatsApp(ticket) {
+                    const msg = `مرحباً ${ticket.customerName}، تم تسجيل هاتفكم (${ticket.brand} ${ticket.model}) بنجاح فـ CircuitFix. رقم التذكرة: ${ticket.ticketNumber}`;
+                    window.open(`https://wa.me/212${ticket.phone.replace(/^0/, '')}?text=${encodeURIComponent(msg)}`, '_blank');
+                }
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
