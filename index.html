@@ -1,1 +1,335 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>CircuitFix - إدارة ورشة الصيانة</title>
+    
+    <!-- PWA Settings -->
+    <meta name="theme-color" content="#1e293b">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="CircuitFix">
 
+    <!-- Tailwind CSS & Icons & Vue.js -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+
+    <style>
+        body { font-family: 'Tajawal', sans-serif; }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen pb-24">
+
+    <div id="app">
+        <!-- Header / الشريط العلوي -->
+        <header class="bg-slate-800 border-b border-slate-700 p-4 sticky top-0 z-40 flex justify-between items-center shadow-lg">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center font-bold text-xl shadow-blue-500/30 shadow-lg">⚡</div>
+                <div>
+                    <h1 class="font-bold text-lg leading-none">{{ shopSettings.name || 'CircuitFix' }}</h1>
+                    <span class="text-xs text-slate-400">نظام إدارة الورشة</span>
+                </div>
+            </div>
+            <div class="bg-blue-500/10 text-blue-400 text-xs px-3 py-1 rounded-full border border-blue-500/20 font-bold">
+                {{ currentWorker.name }} ({{ currentWorker.role === 'MANAGER' ? 'مدير' : 'تقني' }})
+            </div>
+        </header>
+
+        <!-- Main Content Area -->
+        <main class="p-4 max-w-4xl mx-auto">
+
+            <!-- TAB 1: Dashboard -->
+            <section v-if="activeTab === 'dashboard'" class="space-y-4">
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div class="bg-slate-800 p-4 rounded-2xl border border-slate-700/50">
+                        <div class="text-slate-400 text-xs mb-1">إجمالي التذاكر</div>
+                        <div class="text-2xl font-bold text-white">{{ repairs.length }}</div>
+                    </div>
+                    <div class="bg-slate-800 p-4 rounded-2xl border border-slate-700/50">
+                        <div class="text-slate-400 text-xs mb-1">قيد الإصلاح</div>
+                        <div class="text-2xl font-bold text-amber-400">{{ activeRepairsCount }}</div>
+                    </div>
+                    <div class="bg-slate-800 p-4 rounded-2xl border border-slate-700/50">
+                        <div class="text-slate-400 text-xs mb-1">مداخيل الورشة</div>
+                        <div class="text-2xl font-bold text-emerald-400">{{ totalRevenue }} <span class="text-xs">د.م.</span></div>
+                    </div>
+                    <div class="bg-slate-800 p-4 rounded-2xl border border-slate-700/50">
+                        <div class="text-slate-400 text-xs mb-1">صافي الأرباح</div>
+                        <div class="text-2xl font-bold text-blue-400">{{ totalNetProfit }} <span class="text-xs">د.م.</span></div>
+                    </div>
+                </div>
+
+                <!-- Fast Actions -->
+                <div class="flex gap-3">
+                    <button @click="showNewTicketModal = true" class="flex-1 bg-blue-600 hover:bg-blue-500 text-white p-3 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-blue-600/30 transition">
+                        <i class="fa-solid fa-plus"></i> تذكرة إصلاح جديدة
+                    </button>
+                </div>
+
+                <!-- Recent Tickets -->
+                <div class="bg-slate-800 rounded-2xl border border-slate-700/50 p-4">
+                    <h2 class="font-bold text-base mb-3 flex items-center justify-between">
+                        <span>أحدث طلبات الصيانة</span>
+                        <span class="text-xs text-blue-400 cursor-pointer" @click="activeTab = 'repairs'">عرض الكل</span>
+                    </h2>
+                    <div class="space-y-3" v-if="repairs.length">
+                        <div v-for="ticket in repairs.slice(0, 5)" :key="ticket.id" class="bg-slate-900/60 p-3 rounded-xl border border-slate-700/30 flex justify-between items-center">
+                            <div>
+                                <div class="font-bold text-sm text-white">{{ ticket.customerName }} <span class="text-xs text-slate-400">({{ ticket.ticketNumber }})</span></div>
+                                <div class="text-xs text-slate-400">{{ ticket.brand }} {{ ticket.model }} - <span class="text-amber-400">{{ ticket.defect }}</span></div>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span class="text-xs px-2.5 py-1 rounded-full font-bold" :class="getStatusClass(ticket.status)">
+                                    {{ getStatusLabel(ticket.status) }}
+                                </span>
+                                <button @click="sendWhatsApp(ticket)" class="text-emerald-400 p-2 hover:bg-emerald-500/10 rounded-lg">
+                                    <i class="fa-brands fa-whatsapp text-lg"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div v-else class="text-center text-slate-500 py-6">لا توجد تذاكر حالياً</div>
+                </div>
+            </section>
+                    <!-- TAB 2: Repairs List -->
+            <section v-if="activeTab === 'repairs'" class="space-y-4">
+                <div class="flex justify-between items-center">
+                    <h2 class="font-bold text-lg">جميع التذاكر</h2>
+                    <button @click="showNewTicketModal = true" class="bg-blue-600 text-xs px-3 py-2 rounded-xl font-bold">+ إضافة</button>
+                </div>
+                <div class="space-y-3">
+                    <div v-for="ticket in repairs" :key="ticket.id" class="bg-slate-800 p-4 rounded-2xl border border-slate-700/50 space-y-3">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <div class="font-bold text-base text-white">{{ ticket.customerName }}</div>
+                                <div class="text-xs text-slate-400">{{ ticket.phone }} | رقم التذكرة: {{ ticket.ticketNumber }}</div>
+                            </div>
+                            <select v-model="ticket.status" @change="saveData" class="bg-slate-900 border border-slate-700 text-xs text-white p-2 rounded-lg font-bold">
+                                <option value="RECEIVED">تم الاستلام</option>
+                                <option value="DIAGNOSING">قيد التشخيص</option>
+                                <option value="IN_PROGRESS">قيد الإصلاح</option>
+                                <option value="READY">جاهز للتسليم</option>
+                                <option value="DELIVERED">تم التسليم</option>
+                            </select>
+                        </div>
+                        <div class="text-sm bg-slate-900/50 p-2.5 rounded-xl border border-slate-800">
+                            <span class="text-slate-400">الجهاز:</span> {{ ticket.brand }} {{ ticket.model }} | <span class="text-slate-400">العطب:</span> {{ ticket.defect }}
+                            <div v-if="ticket.passcode" class="text-xs text-amber-400 mt-1"><i class="fa-solid fa-key"></i> رمز القفل: {{ ticket.passcode }}</div>
+                        </div>
+                        <div class="flex justify-between items-center text-xs pt-1 border-t border-slate-700/50">
+                            <div>
+                                <span class="text-slate-400">التكلفة:</span> <strong class="text-emerald-400 text-sm">{{ ticket.totalCost || 0 }} د.م.</strong>
+                                <span class="text-slate-500 ml-2">(قطع: {{ ticket.partsCost || 0 }} د.م.)</span>
+                            </div>
+                            <button @click="sendWhatsApp(ticket)" class="bg-emerald-600/20 text-emerald-400 px-3 py-1.5 rounded-lg font-bold flex items-center gap-1">
+                                <i class="fa-brands fa-whatsapp"></i> واتساب
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 3: Inventory -->
+            <section v-if="activeTab === 'inventory'" class="space-y-4">
+                <div class="flex justify-between items-center">
+                    <h2 class="font-bold text-lg">مخزون قطع الغيار</h2>
+                    <button @click="addInventoryItem" class="bg-blue-600 text-xs px-3 py-2 rounded-xl font-bold">+ إضافة قطعة</button>
+                </div>
+                <div class="bg-slate-800 rounded-2xl border border-slate-700/50 overflow-hidden">
+                    <div v-for="item in inventory" :key="item.id" class="p-3 border-b border-slate-700/50 flex justify-between items-center">
+                        <div>
+                            <div class="font-bold text-sm">{{ item.name }}</div>
+                            <div class="text-xs text-slate-400">سعر الشراء: {{ item.buyPrice }} د.م. | الكمية: <span :class="item.qty < 3 ? 'text-red-400 font-bold' : 'text-slate-200'">{{ item.qty }}</span></div>
+                        </div>
+                        <div class="text-emerald-400 font-bold text-sm">{{ item.sellPrice }} د.م.</div>
+                    </div>
+                    <div v-if="!inventory.length" class="p-6 text-center text-slate-500">المخزون فارغ حالياً</div>
+                </div>
+            </section>
+
+            <!-- TAB 4: Settings -->
+            <section v-if="activeTab === 'settings'" class="space-y-4">
+                <h2 class="font-bold text-lg">إعدادات المحل</h2>
+                <div class="bg-slate-800 p-4 rounded-2xl border border-slate-700/50 space-y-3">
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1">اسم المحل / الورشة</label>
+                        <input v-model="shopSettings.name" @input="saveData" type="text" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-sm text-white">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1">رقم الهاتف للتواصل</label>
+                        <input v-model="shopSettings.phone" @input="saveData" type="text" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-sm text-white">
+                    </div>
+                </div>
+            </section>
+
+        </main>
+
+        <!-- Modal: New Ticket -->
+        <div v-if="showNewTicketModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div class="bg-slate-800 border border-slate-700 rounded-3xl p-5 w-full max-w-md space-y-4 shadow-2xl">
+                <div class="flex justify-between items-center border-b border-slate-700 pb-3">
+                    <h3 class="font-bold text-base">إضافة تذكرة صيانة جديدة</h3>
+                    <button @click="showNewTicketModal = false" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+                </div>
+                <div class="space-y-3 text-xs">
+                    <input v-model="newTicket.customerName" type="text" placeholder="اسم الزبون *" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white">
+                    <input v-model="newTicket.phone" type="text" placeholder="رقم الهاتف (مثال: 0612345678) *" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white">
+                    <div class="grid grid-cols-2 gap-2">
+                        <input v-model="newTicket.brand" type="text" placeholder="نوع الهاتف (Samsung...) *" class="bg-slate-900 border border-slate-700 rounded-xl p-3 text-white">
+                        <input v-model="newTicket.model" type="text" placeholder="الموديل (A51...)" class="bg-slate-900 border border-slate-700 rounded-xl p-3 text-white">
+                    </div>
+                    <input v-model="newTicket.defect" type="text" placeholder="وصف العطب (شاشة، شحن...)" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white">
+                    <input v-model="newTicket.passcode" type="text" placeholder="رمز قفل الشاشة (إن وجد)" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white">
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="text-slate-400 mb-1 block">التكلفة الكلية (د.م.)</label>
+                            <input v-model.number="newTicket.totalCost" type="number" placeholder="0" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white">
+                        </div>
+                        <div>
+                            <label class="text-slate-400 mb-1 block">تكلفة القطع (د.م.)</label>
+                            <input v-model.number="newTicket.partsCost" type="number" placeholder="0" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white">
+                        </div>
+                    </div>
+                </div>
+                <button @click="addTicket" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold p-3 rounded-xl shadow-lg shadow-blue-600/30 transition">حفظ التذكرة</button>
+            </div>
+        </div>
+
+        <!-- Navigation Bar / الشريط السفلي -->
+        <nav class="fixed bottom-0 inset-x-0 bg-slate-800/95 backdrop-blur border-t border-slate-700 z-40 p-2 flex justify-around">
+            <button @click="activeTab = 'dashboard'" :class="activeTab === 'dashboard' ? 'text-blue-400 font-bold' : 'text-slate-400'" class="flex flex-col items-center gap-1 text-xs py-1">
+                <i class="fa-solid fa-chart-pie text-lg"></i> الرئيسية
+            </button>
+            <button @click="activeTab = 'repairs'" :class="activeTab === 'repairs' ? 'text-blue-400 font-bold' : 'text-slate-400'" class="flex flex-col items-center gap-1 text-xs py-1">
+                <i class="fa-solid fa-screws-tilting text-lg"></i> التذاكر
+            </button>
+            <button @click="activeTab = 'inventory'" :class="activeTab === 'inventory' ? 'text-blue-400 font-bold' : 'text-slate-400'" class="flex flex-col items-center gap-1 text-xs py-1">
+                <i class="fa-solid fa-boxes-stacked text-lg"></i> المخزون
+            </button>
+            <button @click="activeTab = 'settings'" :class="activeTab === 'settings' ? 'text-blue-400 font-bold' : 'text-slate-400'" class="flex flex-col items-center gap-1 text-xs py-1">
+                <i class="fa-solid fa-gear text-lg"></i> الإعدادات
+            </button>
+        </nav>
+    </div>
+  
+    <!-- Application Logic Script -->
+    <script>
+        const { createApp } = Vue;
+
+        createApp({
+            data() {
+                return {
+                    activeTab: 'dashboard',
+                    showNewTicketModal: false,
+                    currentWorker: { name: 'أحمد', role: 'MANAGER' },
+                    shopSettings: { name: 'CircuitFix', phone: '0661234567' },
+                    repairs: [],
+                    inventory: [],
+                    newTicket: {
+                        customerName: '',
+                        phone: '',
+                        brand: '',
+                        model: '',
+                        defect: '',
+                        passcode: '',
+                        totalCost: null,
+                        partsCost: null
+                    }
+                }
+            },
+            computed: {
+                activeRepairsCount() {
+                    return this.repairs.filter(r => r.status !== 'DELIVERED').length;
+                },
+                totalRevenue() {
+                    return this.repairs
+                        .filter(r => r.status === 'DELIVERED')
+                        .reduce((acc, r) => acc + (Number(r.totalCost) || 0), 0);
+                },
+                totalNetProfit() {
+                    return this.repairs
+                        .filter(r => r.status === 'DELIVERED')
+                        .reduce((acc, r) => {
+                            const total = Number(r.totalCost) || 0;
+                            const parts = Number(r.partsCost) || 0;
+                            return acc + (total - parts);
+                        }, 0);
+                }
+            },
+            methods: {
+                addTicket() {
+                    if (!this.newTicket.customerName || !this.newTicket.phone || !this.newTicket.brand) {
+                        alert('المرجو ملء الحقول الأساسية (الاسم، الهاتف، ونوع الجهاز)');
+                        return;
+                    }
+                    
+                    const ticket = {
+                        id: Date.now(),
+                        ticketNumber: 'REP-' + Math.floor(100 + Math.random() * 900),
+                        ...this.newTicket,
+                        status: 'RECEIVED',
+                        createdAt: new Date().toLocaleDateString('ar-MA')
+                    };
+
+                    this.repairs.unshift(ticket);
+                    this.saveData();
+                    this.newTicket = { customerName: '', phone: '', brand: '', model: '', defect: '', passcode: '', totalCost: null, partsCost: null };
+                    this.showNewTicketModal = false;
+                },
+                addInventoryItem() {
+                    const name = prompt('اسم القطعة:');
+                    if (!name) return;
+                    const buyPrice = Number(prompt('سعر الشراء:')) || 0;
+                    const sellPrice = Number(prompt('سعر البيع:')) || 0;
+                    const qty = Number(prompt('الكمية:')) || 1;
+
+                    this.inventory.unshift({ id: Date.now(), name, buyPrice, sellPrice, qty });
+                    this.saveData();
+                },
+                sendWhatsApp(ticket) {
+                    const msg = `مرحباً ${ticket.customerName}، تم تحديث حالة جهازك (${ticket.brand} ${ticket.model}) إلى: ${this.getStatusLabel(ticket.status)}. التكلفة: ${ticket.totalCost || 0} د.م. شكراً لثقتكم بـ ${this.shopSettings.name}`;
+                    window.open(`https://wa.me/212${ticket.phone.replace(/^0/, '')}?text=${encodeURIComponent(msg)}`, '_blank');
+                },
+                getStatusLabel(status) {
+                    const labels = { RECEIVED: 'تم الاستلام', DIAGNOSING: 'قيد التشخيص', IN_PROGRESS: 'قيد الإصلاح', READY: 'جاهز للتسليم', DELIVERED: 'تم التسليم' };
+                    return labels[status] || status;
+                },
+                getStatusClass(status) {
+                    const classes = { RECEIVED: 'bg-slate-700 text-slate-200', DIAGNOSING: 'bg-purple-500/20 text-purple-400', IN_PROGRESS: 'bg-amber-500/20 text-amber-400', READY: 'bg-emerald-500/20 text-emerald-400', DELIVERED: 'bg-blue-500/20 text-blue-400' };
+                    return classes[status] || '';
+                },
+                saveData() {
+                    localStorage.setItem('circuitfix_data', JSON.stringify({
+                        repairs: this.repairs,
+                        inventory: this.inventory,
+                        shopSettings: this.shopSettings
+                    }));
+                },
+                loadData() {
+                    const saved = localStorage.getItem('circuitfix_data');
+                    if (saved) {
+                        try {
+                            const parsed = JSON.parse(saved);
+                            this.repairs = parsed.repairs || [];
+                            this.inventory = parsed.inventory || [];
+                            this.shopSettings = parsed.shopSettings || this.shopSettings;
+                        } catch (e) {
+                            console.error('Error loading data', e);
+                        }
+                    } else {
+                        this.repairs = [
+                            { id: 1, ticketNumber: 'REP-101', customerName: 'أحمد العمراني', phone: '0661234567', brand: 'Samsung', model: 'A51', defect: 'تغيير الشاشة', passcode: '1234', totalCost: 450, partsCost: 250, status: 'IN_PROGRESS', createdAt: '2026-09-10' }
+                        ];
+                    }
+                }
+            },
+            mounted() {
+                this.loadData();
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
