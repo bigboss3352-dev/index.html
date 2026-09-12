@@ -136,6 +136,17 @@
             'زجاج حماية'
         ];
 
+        // Recommended / Common Suppliers for Quick Suggestions
+        const COMMON_SUPPLIERS = [
+            'محل الأمانة لقطع الغيار',
+            'كمال درب غلف',
+            'البدر للإلكترونيات',
+            'مورد المامونية',
+            'مستودع السالمي للهواتف',
+            'التقنية الحديثة كازا',
+            'سوق الشمال للإلكترونيات'
+        ];
+
         // Comprehensive fault issues categorized for multi-select
         const COMPREHENSIVE_FAULTS_LIST = [
             // شاشات وعرض
@@ -536,7 +547,16 @@
                 technician: 'يوسف السالمي',
                 repairCost: 1250,
                 partsCost: 420,
-                partsUsed: 'تنظيف ألتراسونيك + تبديل مكثفات الشورت وآي سي الباور',
+                partsList: [
+                    { id: 'part-101-1', name: 'آي سي باور رئيسي PMIC', source: 'purchased_external', supplier: 'كمال درب غلف', cost: 280, isPaid: true },
+                    { id: 'part-101-2', name: 'مكثفات ومقاومات خطوط الشورت', source: 'in_stock', supplier: '', cost: 60, isPaid: true },
+                    { id: 'part-101-3', name: 'محلول كيميائي للتنظيف الألتراسونيك', source: 'in_stock', supplier: '', cost: 80, isPaid: true }
+                ],
+                partsUsed: 'آي سي باور رئيسي PMIC + مكثفات ومقاومات خطوط الشورت + محلول كيميائي',
+                partSource: 'purchased_external',
+                partSupplier: 'كمال درب غلف',
+                partPurchasePrice: 280,
+                partPaidToSupplier: true,
                 isOverdue: true,
                 createdAt: new Date(Date.now() - 86400000 * 3).toISOString()
             },
@@ -553,7 +573,16 @@
                 technician: 'إلياس المرابط',
                 repairCost: 1450,
                 partsCost: 890,
-                partsUsed: 'شاشة Dynamic AMOLED 2X أصلية مع الفريم',
+                partsList: [
+                    { id: 'part-102-1', name: 'شاشة Dynamic AMOLED 2X أصلية مع الفريم', source: 'purchased_external', supplier: 'محل الأمانة لقطع الغيار', cost: 750, isPaid: false },
+                    { id: 'part-102-2', name: 'غطاء زجاجي خلفي أصلي', source: 'purchased_external', supplier: 'كمال درب غلف', cost: 100, isPaid: true },
+                    { id: 'part-102-3', name: 'لاصق شاشة أصلي ومقاوم للماء', source: 'in_stock', supplier: '', cost: 40, isPaid: true }
+                ],
+                partsUsed: 'شاشة Dynamic AMOLED 2X أصلية مع الفريم + غطاء زجاجي خلفي أصلي + لاصق شاشة أصلي',
+                partSource: 'purchased_external',
+                partSupplier: 'محل الأمانة لقطع الغيار، كمال درب غلف',
+                partPurchasePrice: 850,
+                partPaidToSupplier: false,
                 isOverdue: false,
                 createdAt: new Date(Date.now() - 86400000 * 2).toISOString()
             },
@@ -570,7 +599,15 @@
                 technician: 'يوسف السالمي',
                 repairCost: 1200,
                 partsCost: 550,
-                partsUsed: 'شاشة أصلية كاملة + سبيكر داخلي',
+                partsList: [
+                    { id: 'part-104-1', name: 'شاشة أصلية كاملة OLED', source: 'purchased_external', supplier: 'البدر للإلكترونيات', cost: 480, isPaid: true },
+                    { id: 'part-104-2', name: 'سبيكر داخلي أصلي', source: 'in_stock', supplier: '', cost: 70, isPaid: true }
+                ],
+                partsUsed: 'شاشة أصلية كاملة OLED + سبيكر داخلي أصلي',
+                partSource: 'purchased_external',
+                partSupplier: 'البدر للإلكترونيات',
+                partPurchasePrice: 480,
+                partPaidToSupplier: true,
                 isOverdue: true,
                 createdAt: new Date(Date.now() - 86400000 * 4).toISOString()
             },
@@ -587,7 +624,15 @@
                 technician: 'هشام التازي',
                 repairCost: 420,
                 partsCost: 160,
-                partsUsed: 'بطارية أصلية G10 + شريط عازل مقاوم للماء',
+                partsList: [
+                    { id: 'part-103-1', name: 'بطارية أصلية G10 معتمدة', source: 'purchased_external', supplier: 'مستودع السالمي للهواتف', cost: 140, isPaid: false },
+                    { id: 'part-103-2', name: 'شريط عازل مقاوم للماء وغراء حراري', source: 'in_stock', supplier: '', cost: 20, isPaid: true }
+                ],
+                partsUsed: 'بطارية أصلية G10 معتمدة + شريط عازل مقاوم للماء وغراء حراري',
+                partSource: 'purchased_external',
+                partSupplier: 'مستودع السالمي للهواتف',
+                partPurchasePrice: 140,
+                partPaidToSupplier: false,
                 isOverdue: false,
                 createdAt: new Date(Date.now() - 86400000).toISOString()
             },
@@ -604,7 +649,14 @@
                 technician: 'هشام التازي',
                 repairCost: 260,
                 partsCost: 65,
-                partsUsed: 'كونكتور شحن أصلي Type-C',
+                partsList: [
+                    { id: 'part-100-1', name: 'كونكتور شحن أصلي فلكس Type-C', source: 'in_stock', supplier: '', cost: 65, isPaid: true }
+                ],
+                partsUsed: 'كونكتور شحن أصلي فلكس Type-C',
+                partSource: 'in_stock',
+                partSupplier: '',
+                partPurchasePrice: 0,
+                partPaidToSupplier: true,
                 isOverdue: false,
                 createdAt: new Date(Date.now() - 86400000 * 5).toISOString()
             }
@@ -1976,11 +2028,31 @@
                 return DEFAULT_SETTINGS;
             });
 
-            // Devices list
+            // Devices list with automatic partsList normalization for backward compatibility
             const [devices, setDevices] = useState(() => {
                 const saved = localStorage.getItem('circuitfix_devices');
                 if (saved) {
-                    try { return JSON.parse(saved); } catch(e) { console.error(e); }
+                    try { 
+                        const parsed = JSON.parse(saved);
+                        if (Array.isArray(parsed)) {
+                            return parsed.map(dev => {
+                                if ((!dev.partsList || !Array.isArray(dev.partsList) || dev.partsList.length === 0) && (dev.partsUsed || dev.partsCost || dev.partSupplier)) {
+                                    return {
+                                        ...dev,
+                                        partsList: [{
+                                            id: `part-${dev.id}-legacy`,
+                                            name: dev.partsUsed || 'قطعة غيار مخصصة',
+                                            source: dev.partSource || (dev.partSupplier ? 'purchased_external' : 'in_stock'),
+                                            supplier: dev.partSupplier || '',
+                                            cost: Number(dev.partPurchasePrice !== undefined ? dev.partPurchasePrice : dev.partsCost) || 0,
+                                            isPaid: dev.partPaidToSupplier !== undefined ? dev.partPaidToSupplier : true
+                                        }]
+                                    };
+                                }
+                                return dev;
+                            });
+                        }
+                    } catch(e) { console.error(e); }
                 }
                 return INITIAL_DEVICES;
             });
@@ -2144,6 +2216,63 @@
                 }));
                 showToast(`تم تحديث تذكرة ${deviceId} إلى "${STATUS_CONFIG[newStatus].label}"`);
             };
+
+            // Toggle supplier payment status for a specific part in a ticket
+            const handleTogglePartPayment = (deviceId, partId) => {
+                setDevices(prev => prev.map(d => {
+                    if (d.id === deviceId) {
+                        const updatedParts = (d.partsList || []).map(p => {
+                            if (p.id === partId) {
+                                return { ...p, isPaid: !p.isPaid };
+                            }
+                            return p;
+                        });
+                        const allExternalPaid = updatedParts.filter(p => p.source === 'purchased_external').every(p => p.isPaid);
+                        return {
+                            ...d,
+                            partsList: updatedParts,
+                            partPaidToSupplier: allExternalPaid
+                        };
+                    }
+                    return d;
+                }));
+                showToast('تم تحديث حالة تسديد القطعة للمورد بنجاح ✅');
+            };
+
+            // Aggregated external parts across all tickets for the supplier ledger
+            const allExternalPartsAcrossTickets = useMemo(() => {
+                const list = [];
+                devices.forEach(dev => {
+                    const parts = dev.partsList && Array.isArray(dev.partsList) && dev.partsList.length > 0
+                        ? dev.partsList
+                        : (dev.partsUsed ? [{
+                            id: `part-${dev.id}-legacy`,
+                            name: dev.partsUsed,
+                            source: dev.partSource || (dev.partSupplier ? 'purchased_external' : 'in_stock'),
+                            supplier: dev.partSupplier || '',
+                            cost: Number(dev.partPurchasePrice !== undefined ? dev.partPurchasePrice : dev.partsCost) || 0,
+                            isPaid: dev.partPaidToSupplier !== undefined ? dev.partPaidToSupplier : true
+                        }] : []);
+
+                    parts.forEach(p => {
+                        if (p.source === 'purchased_external' || (p.supplier && p.supplier.trim() !== '')) {
+                            list.push({
+                                deviceId: dev.id,
+                                customerName: dev.customerName,
+                                deviceModel: dev.deviceModel,
+                                partId: p.id,
+                                partName: p.name || 'قطعة غيار',
+                                supplier: p.supplier || 'مورد خارجي',
+                                cost: Number(p.cost) || 0,
+                                isPaid: Boolean(p.isPaid),
+                                ticketStatus: dev.status,
+                                createdAt: dev.createdAt
+                            });
+                        }
+                    });
+                });
+                return list;
+            }, [devices]);
 
             // Delete ticket
             const handleDeleteDevice = () => {
@@ -2988,6 +3117,123 @@
                                                 </tbody>
                                             </table>
                                         </div>
+                                    </div>
+
+                                    {/* ================= SUPPLIERS & EXTERNAL PARTS LEDGER ================= */}
+                                    <div className="bg-darkCard rounded-2xl border border-darkBorder p-5 space-y-4">
+                                        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-darkBorder pb-4">
+                                            <div className="flex items-center gap-2.5">
+                                                <div className="w-9 h-9 rounded-xl bg-amber-500/15 text-amber-400 border border-amber-500/30 flex items-center justify-center">
+                                                    <i className="fa-solid fa-truck-ramp-box"></i>
+                                                </div>
+                                                <div>
+                                                    <h3 className="text-base font-black text-white flex items-center gap-2">
+                                                        <span>دفتر حسابات الموردين وقطع الغيار المطلوبة من الخارج</span>
+                                                        <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-mono text-xs font-bold">
+                                                            {allExternalPartsAcrossTickets.length} قطع
+                                                        </span>
+                                                    </h3>
+                                                    <p className="text-xs text-gray-400">متابعة فواتير الموردين المستقلين وحالة تسديد ديون قطع الغيار لكل تذكرة</p>
+                                                </div>
+                                            </div>
+
+                                            {/* Quick metrics */}
+                                            {(() => {
+                                                const totalPartsPurchased = allExternalPartsAcrossTickets.reduce((sum, p) => sum + p.cost, 0);
+                                                const totalPaidToSuppliers = allExternalPartsAcrossTickets.filter(p => p.isPaid).reduce((sum, p) => sum + p.cost, 0);
+                                                const totalUnpaidSupplierDebts = allExternalPartsAcrossTickets.filter(p => !p.isPaid).reduce((sum, p) => sum + p.cost, 0);
+
+                                                return (
+                                                    <div className="flex flex-wrap items-center gap-2">
+                                                        <div className="px-3 py-1.5 rounded-xl bg-darkBg border border-darkBorder text-center">
+                                                            <span className="text-[10px] text-gray-400 block">إجمالي مشتريات الموردين</span>
+                                                            <span className="font-mono font-bold text-xs text-white">{totalPartsPurchased} {settings.currency}</span>
+                                                        </div>
+                                                        <div className="px-3 py-1.5 rounded-xl bg-emerald-950/30 border border-emerald-500/30 text-center">
+                                                            <span className="text-[10px] text-emerald-400 block">تم تسديده للموردين</span>
+                                                            <span className="font-mono font-bold text-xs text-emerald-300">{totalPaidToSuppliers} {settings.currency}</span>
+                                                        </div>
+                                                        <div className="px-3 py-1.5 rounded-xl bg-rose-950/40 border border-rose-500/40 text-center">
+                                                            <span className="text-[10px] text-rose-300 block">ديون معلقة (كريدي)</span>
+                                                            <span className="font-mono font-black text-xs text-rose-400 animate-pulse">{totalUnpaidSupplierDebts} {settings.currency}</span>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })()}
+                                        </div>
+
+                                        {allExternalPartsAcrossTickets.length === 0 ? (
+                                            <div className="text-center py-8 text-gray-400 space-y-1">
+                                                <i className="fa-solid fa-clipboard-check text-2xl text-gray-600 block"></i>
+                                                <p className="text-xs font-bold text-gray-300">لا توجد قطع غيار خارجية مسجلة حالياً</p>
+                                                <p className="text-[11px] text-gray-500">عند إضافة أي قطعة بمصدر "تم شراؤها من الخارج"، ستظهر بيانات موردها وديونها هنا مباشرة.</p>
+                                            </div>
+                                        ) : (
+                                            <div className="overflow-x-auto">
+                                                <table className="w-full text-right text-xs">
+                                                    <thead>
+                                                        <tr className="border-b border-darkBorder text-gray-400 font-bold bg-darkBg/60">
+                                                            <th className="p-2.5 rounded-r-lg">التذكرة والجهاز</th>
+                                                            <th className="p-2.5">الزبون</th>
+                                                            <th className="p-2.5">قطعة الغيار</th>
+                                                            <th className="p-2.5">المورد المعتمد</th>
+                                                            <th className="p-2.5">ثمن الشراء</th>
+                                                            <th className="p-2.5">حالة التسديد للمورد</th>
+                                                            <th className="p-2.5 text-center rounded-l-lg">إجراء</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody className="divide-y divide-darkBorder/60 font-medium">
+                                                        {allExternalPartsAcrossTickets.map((item, idx) => (
+                                                            <tr key={`${item.deviceId}-${item.partId}-${idx}`} className="hover:bg-darkBg/50 transition">
+                                                                <td className="p-2.5">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <span className="font-mono font-bold text-cyan-400">#{item.deviceId}</span>
+                                                                        <span className="text-white font-bold">{item.deviceModel}</span>
+                                                                    </div>
+                                                                </td>
+                                                                <td className="p-2.5 text-gray-300">{item.customerName}</td>
+                                                                <td className="p-2.5 font-bold text-white flex items-center gap-1.5">
+                                                                    <i className="fa-solid fa-microchip text-[10px] text-cyan-400"></i>
+                                                                    <span>{item.partName}</span>
+                                                                </td>
+                                                                <td className="p-2.5">
+                                                                    <span className="px-2 py-0.5 rounded bg-amber-500/15 border border-amber-500/30 text-amber-300 font-bold text-[11px] inline-flex items-center gap-1">
+                                                                        <i className="fa-solid fa-shop text-[9px]"></i>
+                                                                        <span>{item.supplier}</span>
+                                                                    </span>
+                                                                </td>
+                                                                <td className="p-2.5 font-mono font-bold text-amber-300">
+                                                                    {item.cost} {settings.currency}
+                                                                </td>
+                                                                <td className="p-2.5">
+                                                                    {item.isPaid ? (
+                                                                        <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-bold inline-flex items-center gap-1">
+                                                                            <i className="fa-solid fa-circle-check text-[9px]"></i>
+                                                                            <span>تم الدفع للمورد</span>
+                                                                        </span>
+                                                                    ) : (
+                                                                        <span className="px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 text-[10px] font-bold inline-flex items-center gap-1">
+                                                                            <i className="fa-solid fa-triangle-exclamation text-[9px]"></i>
+                                                                            <span>دين معلق (كريدي)</span>
+                                                                        </span>
+                                                                    )}
+                                                                </td>
+                                                                <td className="p-2.5 text-center">
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => handleTogglePartPayment(item.deviceId, item.partId)}
+                                                                        title={item.isPaid ? 'تغيير الحالة إلى غير مدفوع' : 'تأكيد دفع الثمن للمورد الآن'}
+                                                                        className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition flex items-center gap-1 mx-auto ${item.isPaid ? 'bg-gray-800 hover:bg-rose-900/50 text-gray-300 hover:text-rose-200 border border-darkBorder' : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm'}`}>
+                                                                        <i className={item.isPaid ? 'fa-solid fa-rotate-left' : 'fa-solid fa-hand-holding-dollar'}></i>
+                                                                        <span>{item.isPaid ? 'إلغاء التسديد' : 'تسديد للمورد'}</span>
+                                                                    </button>
+                                                                </td>
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             )}
@@ -3886,34 +4132,115 @@
                             </div>
                         </div>
 
-                        {/* Spare parts note if any */}
-                        {(device.partsUsed || device.partSource === 'purchased_external') && (
-                            <div className="bg-darkBg/60 p-2.5 rounded-xl border border-darkBorder/80 text-[11px] text-gray-300 space-y-1.5">
-                                <div className="flex items-start gap-2">
-                                    <i className="fa-solid fa-microchip text-purple-400 mt-0.5 text-xs"></i>
-                                    <div className="flex-1">
-                                        <span className="font-bold text-purple-300">قطع الغيار المستخدمة: </span>
-                                        <span>{device.partsUsed || 'قطعة غيار مخصصة'}</span>
-                                        <span className="text-gray-400 mr-2 font-mono font-bold">({device.partsCost || 0} {settings.currency})</span>
+                        {/* Spare parts note with multi-supplier support */}
+                        {((device.partsList && device.partsList.length > 0) || device.partsUsed || device.partSource === 'purchased_external') && (
+                            <div className="bg-darkBg/60 p-2.5 rounded-xl border border-darkBorder/80 text-[11px] text-gray-300 space-y-2">
+                                {/* Header */}
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-1.5">
+                                        <i className="fa-solid fa-microchip text-purple-400 text-xs"></i>
+                                        <span className="font-bold text-purple-300">
+                                            قطع الغيار والمكونات {device.partsList && device.partsList.length > 0 ? `(${device.partsList.length})` : ''}:
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-gray-400 font-mono font-bold text-[10px]">
+                                            التكلفة: {device.partsCost || 0} {settings.currency}
+                                        </span>
+                                        {/* Show supplier debt alert badge if any */}
+                                        {(() => {
+                                            const unpaidParts = (device.partsList || []).filter(p => p.source === 'purchased_external' && !p.isPaid);
+                                            if (unpaidParts.length > 0) {
+                                                const debtTotal = unpaidParts.reduce((s, p) => s + (Number(p.cost) || 0), 0);
+                                                return (
+                                                    <span className="px-2 py-0.5 rounded-md bg-rose-500/15 border border-rose-500/30 text-rose-400 font-bold text-[10px] flex items-center gap-1 animate-pulse">
+                                                        <i className="fa-solid fa-triangle-exclamation text-[9px]"></i>
+                                                        <span>دين مورد: {debtTotal} {settings.currency}</span>
+                                                    </span>
+                                                );
+                                            }
+                                            if (device.partSource === 'purchased_external' && !device.partPaidToSupplier) {
+                                                return (
+                                                    <span className="px-2 py-0.5 rounded-md bg-rose-500/15 border border-rose-500/30 text-rose-400 font-bold text-[10px] flex items-center gap-1 animate-pulse">
+                                                        <i className="fa-solid fa-triangle-exclamation text-[9px]"></i>
+                                                        <span>دين مورد مؤجل</span>
+                                                    </span>
+                                                );
+                                            }
+                                            return null;
+                                        })()}
                                     </div>
                                 </div>
-                                {device.partSource === 'purchased_external' && (
-                                    <div className="flex flex-wrap items-center gap-1.5 pt-1 pr-5 text-[10px]">
-                                        <span className="px-2 py-0.5 rounded-md bg-amber-500/15 border border-amber-500/30 text-amber-300 font-bold flex items-center gap-1">
-                                            <i className="fa-solid fa-truck-ramp-box"></i>
-                                            <span>مشتراة من المورد: {device.partSupplier || 'مورد خارجي'}</span>
-                                            {device.partPurchasePrice ? <span className="font-mono">({device.partPurchasePrice} {settings.currency})</span> : null}
-                                        </span>
-                                        {device.partPaidToSupplier ? (
-                                            <span className="px-2 py-0.5 rounded-md bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-bold flex items-center gap-1">
-                                                <i className="fa-solid fa-circle-check"></i>
-                                                <span>تم دفع الثمن للمورد</span>
-                                            </span>
-                                        ) : (
-                                            <span className="px-2 py-0.5 rounded-md bg-rose-500/15 border border-rose-500/30 text-rose-400 font-bold flex items-center gap-1 animate-pulse">
-                                                <i className="fa-solid fa-triangle-exclamation"></i>
-                                                <span>ذمة / لم يُدفع للمورد</span>
-                                            </span>
+
+                                {/* Multi-Parts Itemized List */}
+                                {device.partsList && device.partsList.length > 0 ? (
+                                    <div className="space-y-1.5 pt-1 border-t border-darkBorder/60">
+                                        {device.partsList.map((p, pIdx) => (
+                                            <div key={p.id || pIdx} className="bg-darkCard/70 p-2 rounded-lg border border-darkBorder/50 flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 text-[11px]">
+                                                <div className="flex items-center gap-2 flex-1">
+                                                    <span className="w-4 h-4 rounded-full bg-purple-950/80 border border-purple-500/40 text-[9px] text-purple-300 font-mono font-bold flex items-center justify-center shrink-0">
+                                                        {pIdx + 1}
+                                                    </span>
+                                                    <span className="font-bold text-white">{p.name || 'قطعة غيار'}</span>
+                                                </div>
+
+                                                <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
+                                                    {p.source === 'purchased_external' ? (
+                                                        <>
+                                                            <span className="px-2 py-0.5 rounded-md bg-amber-500/15 border border-amber-500/30 text-amber-300 font-medium flex items-center gap-1">
+                                                                <i className="fa-solid fa-truck-ramp-box text-[9px]"></i>
+                                                                <span>المورد: <strong className="text-amber-200">{p.supplier || 'مورد خارجي'}</strong></span>
+                                                                <span className="font-mono font-bold mr-1">({p.cost || 0} {settings.currency})</span>
+                                                            </span>
+                                                            {p.isPaid ? (
+                                                                <span className="px-2 py-0.5 rounded-md bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-bold flex items-center gap-1">
+                                                                    <i className="fa-solid fa-circle-check text-[9px]"></i>
+                                                                    <span>مدفوعة</span>
+                                                                </span>
+                                                            ) : (
+                                                                <span className="px-2 py-0.5 rounded-md bg-rose-500/20 border border-rose-500/40 text-rose-300 font-bold flex items-center gap-1">
+                                                                    <i className="fa-solid fa-clock text-[9px]"></i>
+                                                                    <span>دين / كريدي</span>
+                                                                </span>
+                                                            )}
+                                                        </>
+                                                    ) : (
+                                                        <span className="px-2 py-0.5 rounded-md bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 font-medium flex items-center gap-1">
+                                                            <i className="fa-solid fa-boxes-stacked text-[9px]"></i>
+                                                            <span>مخزون المحل</span>
+                                                            {p.cost > 0 && <span className="font-mono text-gray-400 mr-1">({p.cost} {settings.currency})</span>}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    /* Legacy Single-Part view */
+                                    <div>
+                                        <div className="text-gray-300">
+                                            <span>{device.partsUsed || 'قطعة غيار مخصصة'}</span>
+                                            <span className="text-gray-400 mr-2 font-mono font-bold">({device.partsCost || 0} {settings.currency})</span>
+                                        </div>
+                                        {device.partSource === 'purchased_external' && (
+                                            <div className="flex flex-wrap items-center gap-1.5 pt-1 pr-1 text-[10px]">
+                                                <span className="px-2 py-0.5 rounded-md bg-amber-500/15 border border-amber-500/30 text-amber-300 font-bold flex items-center gap-1">
+                                                    <i className="fa-solid fa-truck-ramp-box"></i>
+                                                    <span>مشتراة من المورد: {device.partSupplier || 'مورد خارجي'}</span>
+                                                    {device.partPurchasePrice ? <span className="font-mono">({device.partPurchasePrice} {settings.currency})</span> : null}
+                                                </span>
+                                                {device.partPaidToSupplier ? (
+                                                    <span className="px-2 py-0.5 rounded-md bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-bold flex items-center gap-1">
+                                                        <i className="fa-solid fa-circle-check"></i>
+                                                        <span>تم دفع الثمن للمورد</span>
+                                                    </span>
+                                                ) : (
+                                                    <span className="px-2 py-0.5 rounded-md bg-rose-500/15 border border-rose-500/30 text-rose-400 font-bold flex items-center gap-1 animate-pulse">
+                                                        <i className="fa-solid fa-triangle-exclamation"></i>
+                                                        <span>ذمة / لم يُدفع للمورد</span>
+                                                    </span>
+                                                )}
+                                            </div>
                                         )}
                                     </div>
                                 )}
@@ -4076,14 +4403,102 @@
             const [customFaultInput, setCustomFaultInput] = useState('');
             const [issueNotes, setIssueNotes] = useState(device?.issueNotes || '');
 
-            // Spare Parts & Supplier Sourcing State
-            const [partsUsed, setPartsUsed] = useState(device?.partsUsed || '');
-            const [partSource, setPartSource] = useState(device?.partSource || 'in_stock'); // 'in_stock' | 'purchased_external'
-            const [partSupplier, setPartSupplier] = useState(device?.partSupplier || '');
-            const [partPurchasePrice, setPartPurchasePrice] = useState(device?.partPurchasePrice || device?.partsCost || '');
-            const [partPaidToSupplier, setPartPaidToSupplier] = useState(device?.partPaidToSupplier !== undefined ? device.partPaidToSupplier : true);
+            // Spare Parts & Multi-Supplier Sourcing State
+            const initialPartsList = useMemo(() => {
+                if (device?.partsList && Array.isArray(device.partsList) && device.partsList.length > 0) {
+                    return device.partsList.map((p, idx) => ({
+                        id: p.id || `part-${Date.now()}-${idx}-${Math.random().toString(36).substr(2, 5)}`,
+                        name: p.name || '',
+                        source: p.source || 'in_stock',
+                        supplier: p.supplier || '',
+                        cost: p.cost !== undefined ? p.cost : '',
+                        isPaid: p.isPaid !== undefined ? p.isPaid : true
+                    }));
+                }
+                // Legacy fallback if device had old single parts fields
+                if (device?.partsUsed || device?.partSupplier || device?.partsCost) {
+                    return [{
+                        id: `part-${Date.now()}-legacy`,
+                        name: device.partsUsed || 'قطعة غيار مخصصة',
+                        source: device.partSource || (device.partSupplier ? 'purchased_external' : 'in_stock'),
+                        supplier: device.partSupplier || '',
+                        cost: device.partPurchasePrice !== undefined ? device.partPurchasePrice : (device.partsCost || ''),
+                        isPaid: device.partPaidToSupplier !== undefined ? device.partPaidToSupplier : true
+                    }];
+                }
+                return [];
+            }, [device]);
+
+            const [partsList, setPartsList] = useState(initialPartsList);
             const [repairCost, setRepairCost] = useState(device?.repairCost || '');
-            const [partsCost, setPartsCost] = useState(device?.partsCost || 0);
+
+            // Part helper operations
+            const handleAddPart = (partName = '') => {
+                setPartsList(prev => [
+                    ...prev,
+                    {
+                        id: `part-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+                        name: partName,
+                        source: 'in_stock',
+                        supplier: '',
+                        cost: '',
+                        isPaid: true
+                    }
+                ]);
+            };
+
+            const handleRemovePart = (id) => {
+                setPartsList(prev => prev.filter(p => p.id !== id));
+            };
+
+            const handleUpdatePart = (id, field, value) => {
+                setPartsList(prev => prev.map(p => {
+                    if (p.id === id) {
+                        const updated = { ...p, [field]: value };
+                        if (field === 'source' && value === 'in_stock') {
+                            updated.isPaid = true;
+                        }
+                        return updated;
+                    }
+                    return p;
+                }));
+            };
+
+            const handleAddQuickPart = (partName) => {
+                setPartsList(prev => {
+                    if (prev.length > 0 && !prev[prev.length - 1].name.trim()) {
+                        const copy = [...prev];
+                        copy[copy.length - 1] = { 
+                            ...copy[copy.length - 1], 
+                            name: partName,
+                            source: 'purchased_external'
+                        };
+                        return copy;
+                    }
+                    return [
+                        ...prev,
+                        {
+                            id: `part-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+                            name: partName,
+                            source: 'purchased_external',
+                            supplier: '',
+                            cost: '',
+                            isPaid: false
+                        }
+                    ];
+                });
+            };
+
+            // Calculated Totals for parts
+            const totalPartsCost = useMemo(() => {
+                return partsList.reduce((sum, p) => sum + (Number(p.cost) || 0), 0);
+            }, [partsList]);
+
+            const totalUnpaidSupplierDebt = useMemo(() => {
+                return partsList
+                    .filter(p => p.source === 'purchased_external' && !p.isPaid)
+                    .reduce((sum, p) => sum + (Number(p.cost) || 0), 0);
+            }, [partsList]);
 
             // Toggle fault in/out of selectedFaults
             const toggleFault = (faultLabel) => {
@@ -4105,14 +4520,6 @@
                     setSelectedFaults(prev => [...prev, trimmed]);
                 }
                 setCustomFaultInput('');
-            };
-
-            const addQuickPart = (partName) => {
-                setPartsUsed(prev => {
-                    if (!prev) return partName;
-                    if (prev.includes(partName)) return prev;
-                    return `${prev} + ${partName}`;
-                });
             };
 
             // Instant Model Search Filter across all brands
@@ -4162,9 +4569,23 @@
                     ? selectedFaults.join(' + ') + (issueNotes.trim() ? ` [${issueNotes.trim()}]` : '')
                     : (issueNotes.trim() || 'فحص عام وإصلاح');
 
-                const effectivePartsCost = partSource === 'purchased_external' 
-                    ? (Number(partPurchasePrice) || 0) 
-                    : (Number(partsCost) || 0);
+                // Normalize partsList
+                const cleanPartsList = partsList
+                    .filter(p => p.name.trim() || Number(p.cost) > 0 || p.supplier.trim())
+                    .map(p => ({
+                        id: p.id,
+                        name: p.name.trim() || 'قطعة غيار غير مسماة',
+                        source: p.source,
+                        supplier: p.source === 'purchased_external' ? p.supplier.trim() : '',
+                        cost: Number(p.cost) || 0,
+                        isPaid: p.source === 'purchased_external' ? !!p.isPaid : true
+                    }));
+
+                const finalPartsCost = cleanPartsList.reduce((sum, p) => sum + p.cost, 0);
+                const derivedPartsUsed = cleanPartsList.map(p => p.name).join(' + ');
+                const hasExternal = cleanPartsList.some(p => p.source === 'purchased_external');
+                const suppliersArray = [...new Set(cleanPartsList.filter(p => p.source === 'purchased_external' && p.supplier).map(p => p.supplier))];
+                const allPaid = cleanPartsList.filter(p => p.source === 'purchased_external').every(p => p.isPaid);
 
                 const ticketData = {
                     id: device ? device.id : nextId,
@@ -4179,12 +4600,14 @@
                     status: device ? device.status : 'new',
                     technician,
                     repairCost: Number(repairCost) || 0,
-                    partsCost: effectivePartsCost,
-                    partsUsed: partsUsed.trim(),
-                    partSource,
-                    partSupplier: partSource === 'purchased_external' ? partSupplier.trim() : '',
-                    partPurchasePrice: partSource === 'purchased_external' ? (Number(partPurchasePrice) || 0) : 0,
-                    partPaidToSupplier: partSource === 'purchased_external' ? partPaidToSupplier : true,
+                    partsCost: finalPartsCost,
+                    partsList: cleanPartsList,
+                    // Backward compatible fields
+                    partsUsed: derivedPartsUsed,
+                    partSource: hasExternal ? 'purchased_external' : 'in_stock',
+                    partSupplier: suppliersArray.join('، '),
+                    partPurchasePrice: finalPartsCost,
+                    partPaidToSupplier: allPaid,
                     tags: selectedFaults.length > 0 ? selectedFaults : [],
                     isOverdue: device ? device.isOverdue : false,
                     createdAt: device ? device.createdAt : new Date().toISOString(),
@@ -4194,10 +4617,7 @@
                 onSave(ticketData);
             };
 
-            const effectiveCostForCalc = partSource === 'purchased_external' 
-                ? (Number(partPurchasePrice) || 0) 
-                : (Number(partsCost) || 0);
-            const calculatedProfit = (Number(repairCost) || 0) - effectiveCostForCalc;
+            const calculatedProfit = (Number(repairCost) || 0) - totalPartsCost;
 
             return (
                 <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
@@ -4550,133 +4970,264 @@
                                 </div>
                             </div>
 
-                            {/* ================= SECTION 4: SPARE PARTS & SUPPLIER DETAILS ================= */}
-                            <div className="bg-darkBg p-3.5 rounded-2xl border border-darkBorder space-y-3">
-                                <div className="flex items-center justify-between">
-                                    <label className="font-bold text-cyan-300 flex items-center gap-1.5 text-xs">
-                                        <i className="fa-solid fa-microchip"></i>
-                                        <span>قطع الغيار والمكونات المستخدمة:</span>
-                                    </label>
-                                    <span className="text-[10px] text-gray-400">حدد القطعة ومصدرها</span>
+                            {/* ================= SECTION 4: SPARE PARTS & MULTI-SUPPLIER DETAILS ================= */}
+                            <div className="bg-darkBg p-3.5 rounded-2xl border border-darkBorder space-y-3.5">
+                                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-darkBorder pb-2.5">
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-7 h-7 rounded-lg bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 flex items-center justify-center text-xs">
+                                            <i className="fa-solid fa-microchip"></i>
+                                        </div>
+                                        <div>
+                                            <h4 className="font-bold text-white text-xs flex items-center gap-1.5">
+                                                <span>قطع الغيار والمكونات المستخدمة</span>
+                                                <span className="px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 font-mono text-[10px] font-bold">
+                                                    {partsList.length} قطع
+                                                </span>
+                                            </h4>
+                                            <p className="text-[10px] text-gray-400">تخصيص مورد وثمن شراء وحالة دفع مستقلة لكل قطعة غيار</p>
+                                        </div>
+                                    </div>
+
+                                    {/* Add part button */}
+                                    <button
+                                        type="button"
+                                        onClick={() => handleAddPart()}
+                                        className="px-3 py-1.5 rounded-xl bg-cyan-500/15 hover:bg-cyan-600 text-cyan-300 hover:text-white border border-cyan-500/30 text-xs font-bold transition flex items-center gap-1.5 shadow-sm">
+                                        <i className="fa-solid fa-plus text-[10px]"></i>
+                                        <span>إضافة قطعة غيار</span>
+                                    </button>
                                 </div>
 
-                                {/* Part Sourcing Toggle */}
-                                <div className="space-y-1.5">
-                                    <span className="text-[11px] font-bold text-gray-300 block">حالة ومصدر قطعة الغيار:</span>
-                                    <div className="grid grid-cols-2 gap-2">
+                                {/* Parts List Container */}
+                                {partsList.length === 0 ? (
+                                    <div className="bg-darkCard/50 border border-dashed border-darkBorder rounded-xl p-5 text-center space-y-2.5">
+                                        <div className="w-10 h-10 mx-auto rounded-full bg-gray-800 text-gray-400 flex items-center justify-center text-sm">
+                                            <i className="fa-solid fa-wrench"></i>
+                                        </div>
+                                        <div className="space-y-0.5">
+                                            <p className="text-xs font-bold text-gray-300">لا توجد قطع غيار مسجلة لهذه التذكرة</p>
+                                            <p className="text-[11px] text-gray-500">إصلاح صيانة يدوي، سوفتوير، أو فحص بدون الحاجة لقطع غيار خارجية.</p>
+                                        </div>
                                         <button
                                             type="button"
-                                            onClick={() => setPartSource('in_stock')}
-                                            className={`p-2.5 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 transition ${partSource === 'in_stock' ? 'bg-emerald-600/20 border-emerald-500 text-emerald-300 shadow-sm' : 'bg-darkCard border-darkBorder text-gray-400 hover:text-white'}`}>
-                                            <i className="fa-solid fa-boxes-stacked"></i>
-                                            <span>موجودة في المحل (مخزون)</span>
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => setPartSource('purchased_external')}
-                                            className={`p-2.5 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 transition ${partSource === 'purchased_external' ? 'bg-amber-600/20 border-amber-500 text-amber-300 shadow-sm' : 'bg-darkCard border-darkBorder text-gray-400 hover:text-white'}`}>
-                                            <i className="fa-solid fa-truck-ramp-box"></i>
-                                            <span>تم شراؤها من الخارج (مورد)</span>
+                                            onClick={() => handleAddPart()}
+                                            className="px-4 py-2 rounded-xl bg-cyan-600/20 hover:bg-cyan-600 text-cyan-300 hover:text-white border border-cyan-500/30 text-xs font-bold transition inline-flex items-center gap-1.5">
+                                            <i className="fa-solid fa-plus"></i>
+                                            <span>إضافة أول قطعة غيار</span>
                                         </button>
                                     </div>
-                                </div>
+                                ) : (
+                                    <div className="space-y-3">
+                                        {partsList.map((part, idx) => {
+                                            const isExternal = part.source === 'purchased_external';
+                                            return (
+                                                <div 
+                                                    key={part.id} 
+                                                    className="bg-darkCard rounded-xl border border-darkBorder/90 p-3 space-y-3 relative transition hover:border-cyan-500/40">
+                                                    
+                                                    {/* Card top bar */}
+                                                    <div className="flex items-center justify-between border-b border-darkBorder/60 pb-2">
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="w-5 h-5 rounded-full bg-cyan-950 text-cyan-300 border border-cyan-500/40 text-[10px] font-mono font-bold flex items-center justify-center">
+                                                                {idx + 1}
+                                                            </span>
+                                                            <span className="font-bold text-white text-xs">
+                                                                {part.name ? part.name : `قطعة غيار #${idx + 1}`}
+                                                            </span>
+                                                            {isExternal ? (
+                                                                <span className="px-2 py-0.5 rounded bg-amber-500/15 border border-amber-500/30 text-amber-300 text-[10px] font-bold flex items-center gap-1">
+                                                                    <i className="fa-solid fa-truck-ramp-box text-[9px]"></i>
+                                                                    <span>طلب خارجي (مورد)</span>
+                                                                </span>
+                                                            ) : (
+                                                                <span className="px-2 py-0.5 rounded bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[10px] font-bold flex items-center gap-1">
+                                                                    <i className="fa-solid fa-boxes-stacked text-[9px]"></i>
+                                                                    <span>مخزون المحل</span>
+                                                                </span>
+                                                            )}
+                                                        </div>
 
-                                {/* Part Name / Description */}
-                                <div>
-                                    <label className="block text-[11px] font-bold text-gray-300 mb-1">
-                                        اسم القطعة ومواصفاتها:
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={partsUsed}
-                                        onChange={(e) => setPartsUsed(e.target.value)}
-                                        placeholder="مثال: شاشة OLED أصلية + كونكتور شحن Type-C..."
-                                        className="w-full bg-darkCard border border-darkBorder rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-cyan-500 font-medium"
-                                    />
-                                    {/* Quick capsules */}
-                                    <div className="flex flex-wrap gap-1 mt-1.5">
+                                                        {/* Delete part button */}
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleRemovePart(part.id)}
+                                                            title="حذف هذه القطعة"
+                                                            className="w-7 h-7 rounded-lg bg-gray-800 hover:bg-rose-600 text-gray-400 hover:text-white flex items-center justify-center transition text-xs">
+                                                            <i className="fa-solid fa-trash-can"></i>
+                                                        </button>
+                                                    </div>
+
+                                                    {/* Row 1: Part Name & Source Selector */}
+                                                    <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
+                                                        {/* Part Name Input */}
+                                                        <div className="sm:col-span-7">
+                                                            <label className="block text-[10px] font-bold text-gray-400 mb-1">
+                                                                اسم القطعة ومواصفاتها:
+                                                            </label>
+                                                            <input
+                                                                type="text"
+                                                                value={part.name}
+                                                                onChange={(e) => handleUpdatePart(part.id, 'name', e.target.value)}
+                                                                placeholder="مثال: شاشة OLED، بطارية أصلية، كونكتور شحن..."
+                                                                className="w-full bg-darkBg border border-darkBorder rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-cyan-500 font-bold"
+                                                            />
+                                                        </div>
+
+                                                        {/* Source Toggle */}
+                                                        <div className="sm:col-span-5">
+                                                            <label className="block text-[10px] font-bold text-gray-400 mb-1">
+                                                                مصدر القطعة:
+                                                            </label>
+                                                            <div className="grid grid-cols-2 gap-1.5">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => handleUpdatePart(part.id, 'source', 'in_stock')}
+                                                                    className={`py-1.5 px-2 rounded-xl border text-[11px] font-bold flex items-center justify-center gap-1 transition ${!isExternal ? 'bg-emerald-600/25 border-emerald-500 text-emerald-300' : 'bg-darkBg border-darkBorder text-gray-400 hover:text-white'}`}>
+                                                                    <i className="fa-solid fa-boxes-stacked text-[10px]"></i>
+                                                                    <span>المحل</span>
+                                                                </button>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => handleUpdatePart(part.id, 'source', 'purchased_external')}
+                                                                    className={`py-1.5 px-2 rounded-xl border text-[11px] font-bold flex items-center justify-center gap-1 transition ${isExternal ? 'bg-amber-600/25 border-amber-500 text-amber-300' : 'bg-darkBg border-darkBorder text-gray-400 hover:text-white'}`}>
+                                                                    <i className="fa-solid fa-truck-ramp-box text-[10px]"></i>
+                                                                    <span>مورد خارجي</span>
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Row 2: In-Stock Cost OR External Supplier Details */}
+                                                    {isExternal ? (
+                                                        <div className="bg-amber-950/20 border border-amber-500/30 rounded-xl p-2.5 space-y-2.5">
+                                                            <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 text-xs">
+                                                                {/* Supplier Name */}
+                                                                <div className="sm:col-span-7">
+                                                                    <label className="block font-bold text-amber-200 text-[11px] mb-1">
+                                                                        اسم المورد الخاص بهذه القطعة بالتحديد: *
+                                                                    </label>
+                                                                    <input
+                                                                        type="text"
+                                                                        value={part.supplier}
+                                                                        onChange={(e) => handleUpdatePart(part.id, 'supplier', e.target.value)}
+                                                                        placeholder="مثال: كمال درب غلف، محل الأمانة، البدر..."
+                                                                        className="w-full bg-darkBg border border-amber-500/40 rounded-xl px-3 py-1.5 text-white font-bold text-xs focus:outline-none focus:border-amber-400"
+                                                                    />
+                                                                    {/* Quick Supplier Suggestions */}
+                                                                    <div className="flex flex-wrap gap-1 mt-1.5">
+                                                                        <span className="text-[9px] text-amber-400/80 font-bold ml-1 self-center">مورد سريع:</span>
+                                                                        {COMMON_SUPPLIERS.map(sup => (
+                                                                            <button
+                                                                                type="button"
+                                                                                key={sup}
+                                                                                onClick={() => handleUpdatePart(part.id, 'supplier', sup)}
+                                                                                className="px-1.5 py-0.5 rounded bg-darkBg hover:bg-amber-600/30 text-amber-200 text-[9px] transition border border-amber-500/30">
+                                                                                {sup}
+                                                                            </button>
+                                                                        ))}
+                                                                    </div>
+                                                                </div>
+
+                                                                {/* Purchase Price from this specific supplier */}
+                                                                <div className="sm:col-span-5">
+                                                                    <label className="block font-bold text-amber-200 text-[11px] mb-1">
+                                                                        ثمن الشراء من المورد ({settings.currency}): *
+                                                                    </label>
+                                                                    <input
+                                                                        type="number"
+                                                                        value={part.cost}
+                                                                        onChange={(e) => handleUpdatePart(part.id, 'cost', e.target.value)}
+                                                                        placeholder="مثال: 450"
+                                                                        className="w-full bg-darkBg border border-amber-500/40 rounded-xl px-3 py-1.5 text-amber-300 font-mono font-bold text-xs focus:outline-none focus:border-amber-400"
+                                                                    />
+                                                                </div>
+                                                            </div>
+
+                                                            {/* Payment Status for this specific supplier */}
+                                                            <div className="pt-1 border-t border-amber-500/20">
+                                                                <span className="block text-[10px] font-bold text-gray-300 mb-1">
+                                                                    حالة تسديد الثمن للمورد ({part.supplier || 'المورد'}):
+                                                                </span>
+                                                                <div className="grid grid-cols-2 gap-2">
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => handleUpdatePart(part.id, 'isPaid', true)}
+                                                                        className={`py-1.5 px-2.5 rounded-xl border text-[11px] font-bold flex items-center justify-center gap-1.5 transition ${part.isPaid ? 'bg-emerald-600/30 border-emerald-500 text-emerald-300 shadow-sm' : 'bg-darkBg border-darkBorder text-gray-400 hover:text-white'}`}>
+                                                                        <i className="fa-solid fa-circle-check text-[10px]"></i>
+                                                                        <span>✓ تم دفع الثمن نقداً للمورد</span>
+                                                                    </button>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => handleUpdatePart(part.id, 'isPaid', false)}
+                                                                        className={`py-1.5 px-2.5 rounded-xl border text-[11px] font-bold flex items-center justify-center gap-1.5 transition ${!part.isPaid ? 'bg-rose-600/30 border-rose-500 text-rose-300 shadow-sm' : 'bg-darkBg border-darkBorder text-gray-400 hover:text-white'}`}>
+                                                                        <i className="fa-solid fa-triangle-exclamation text-[10px]"></i>
+                                                                        <span>⚠️ دين غير مدفوع (كريدي مؤجل)</span>
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    ) : (
+                                                        /* In-Stock Cost input */
+                                                        <div className="bg-emerald-950/15 border border-emerald-500/20 rounded-xl p-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                                                            <div className="flex items-center gap-2">
+                                                                <i className="fa-solid fa-boxes-stacked text-emerald-400 text-xs"></i>
+                                                                <span className="text-gray-300 text-[11px]">
+                                                                    القطعة مأخوذة من رصيد المحل (تم شراؤها مسبقاً وتخزينها).
+                                                                </span>
+                                                            </div>
+                                                            <div className="flex items-center gap-2 shrink-0">
+                                                                <label className="text-[10px] text-gray-400 font-bold whitespace-nowrap">
+                                                                    تكلفة التخزين ({settings.currency}):
+                                                                </label>
+                                                                <input
+                                                                    type="number"
+                                                                    value={part.cost}
+                                                                    onChange={(e) => handleUpdatePart(part.id, 'cost', e.target.value)}
+                                                                    placeholder="0 (اختياري)"
+                                                                    className="w-24 bg-darkBg border border-emerald-500/30 rounded-lg px-2 py-1 text-emerald-300 font-mono font-bold text-xs focus:outline-none focus:border-emerald-400"
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+
+                                {/* Quick Add Capsules & Action bar */}
+                                <div className="pt-2 border-t border-darkBorder/80 space-y-2">
+                                    <div className="flex flex-wrap items-center gap-1.5">
+                                        <span className="text-[10px] text-gray-400 font-bold ml-1">إضافة سريعة:</span>
                                         {QUICK_PARTS.map(p => (
                                             <button
                                                 type="button"
                                                 key={p}
-                                                onClick={() => addQuickPart(p)}
-                                                className="px-2 py-0.5 rounded bg-darkCard hover:bg-cyan-600 text-gray-400 hover:text-white text-[10px] transition border border-darkBorder">
+                                                onClick={() => handleAddQuickPart(p)}
+                                                className="px-2 py-0.5 rounded-lg bg-darkCard hover:bg-cyan-600/30 text-gray-300 hover:text-cyan-200 text-[10px] transition border border-darkBorder hover:border-cyan-500/40">
                                                 + {p}
                                             </button>
                                         ))}
                                     </div>
+
+                                    {/* Supplier Debt Alert Bar if any unpaid parts */}
+                                    {totalUnpaidSupplierDebt > 0 && (
+                                        <div className="p-2 rounded-xl bg-rose-950/40 border border-rose-500/40 flex items-center justify-between text-xs text-rose-300">
+                                            <div className="flex items-center gap-2">
+                                                <i className="fa-solid fa-triangle-exclamation text-rose-400 animate-pulse"></i>
+                                                <span className="font-bold">تنبيه ديون الموردين المؤجلة على هذه التذكرة:</span>
+                                            </div>
+                                            <span className="font-mono font-black text-rose-200 text-sm">
+                                                {totalUnpaidSupplierDebt} {settings.currency} (كريدي غير مدفوع)
+                                            </span>
+                                        </div>
+                                    )}
                                 </div>
 
-                                {/* Conditional Fields when "تم شراؤها من الخارج" is selected */}
-                                {partSource === 'purchased_external' && (
-                                    <div className="bg-amber-950/20 border border-amber-500/30 rounded-xl p-3 space-y-3">
-                                        <div className="flex items-center gap-2 text-amber-300 text-xs font-bold border-b border-amber-500/20 pb-2">
-                                            <i className="fa-solid fa-file-invoice-dollar"></i>
-                                            <span>بيانات الشراء من المورد الخارجي:</span>
-                                        </div>
-
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                                            {/* Supplier Name */}
-                                            <div>
-                                                <label className="block font-bold text-amber-200 mb-1">
-                                                    اسم المورد / المحل الخارجي *
-                                                </label>
-                                                <input
-                                                    type="text"
-                                                    value={partSupplier}
-                                                    onChange={(e) => setPartSupplier(e.target.value)}
-                                                    placeholder="مثال: محل الأمانة / كمال درب غلف / البدر"
-                                                    className="w-full bg-darkCard border border-amber-500/40 rounded-xl px-3 py-2 text-white font-bold focus:outline-none focus:border-amber-400"
-                                                />
-                                            </div>
-
-                                            {/* Purchase Price from Supplier */}
-                                            <div>
-                                                <label className="block font-bold text-amber-200 mb-1">
-                                                    ثمن الشراء من المورد ({settings.currency}) *
-                                                </label>
-                                                <input
-                                                    type="number"
-                                                    value={partPurchasePrice}
-                                                    onChange={(e) => {
-                                                        setPartPurchasePrice(e.target.value);
-                                                        setPartsCost(e.target.value);
-                                                    }}
-                                                    placeholder="مثال: 350"
-                                                    className="w-full bg-darkCard border border-amber-500/40 rounded-xl px-3 py-2 text-amber-300 font-mono font-bold focus:outline-none focus:border-amber-400"
-                                                />
-                                            </div>
-                                        </div>
-
-                                        {/* Paid vs Unpaid status toggle */}
-                                        <div>
-                                            <label className="block font-bold text-gray-300 mb-1.5">
-                                                هل تم دفع ثمن القطعة للمورد؟
-                                            </label>
-                                            <div className="grid grid-cols-2 gap-2">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setPartPaidToSupplier(true)}
-                                                    className={`py-2 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 transition ${partPaidToSupplier ? 'bg-emerald-600/30 border-emerald-500 text-emerald-300' : 'bg-darkCard border-darkBorder text-gray-400 hover:text-white'}`}>
-                                                    <i className="fa-solid fa-circle-check"></i>
-                                                    <span>✓ نعم - تم دفع الثمن للمورد</span>
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setPartPaidToSupplier(false)}
-                                                    className={`py-2 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 transition ${!partPaidToSupplier ? 'bg-rose-600/30 border-rose-500 text-rose-300 shadow-sm' : 'bg-darkCard border-darkBorder text-gray-400 hover:text-white'}`}>
-                                                    <i className="fa-solid fa-triangle-exclamation"></i>
-                                                    <span>⚠️ لا - دين غير مدفوع (كريدي مؤجل)</span>
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Financial row */}
-                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-2 border-t border-darkBorder text-xs">
+                                {/* Financial calculation row */}
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-2.5 border-t border-darkBorder text-xs">
                                     <div>
-                                        <label className="block text-[11px] font-bold text-gray-400 mb-1">
+                                        <label className="block text-[11px] font-bold text-gray-300 mb-1">
                                             ثمن الإصلاح للزبون ({settings.currency}) *
                                         </label>
                                         <input
@@ -4689,23 +5240,20 @@
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-[11px] font-bold text-gray-400 mb-1">
-                                            تكلفة القطعة ({settings.currency})
-                                        </label>
-                                        <input
-                                            type="number"
-                                            value={partSource === 'purchased_external' ? partPurchasePrice : partsCost}
-                                            onChange={(e) => {
-                                                setPartsCost(e.target.value);
-                                                if (partSource === 'purchased_external') setPartPurchasePrice(e.target.value);
-                                            }}
-                                            placeholder="0 إذا كانت متوفرة بالمحل"
-                                            className="w-full bg-darkCard border border-darkBorder rounded-xl px-3 py-2 text-purple-400 font-bold font-mono focus:outline-none focus:border-purple-500 text-sm"
-                                        />
+                                        <div className="flex items-center justify-between mb-1">
+                                            <label className="text-[11px] font-bold text-gray-300">
+                                                إجمالي تكلفة قطع الغيار:
+                                            </label>
+                                            <span className="text-[9px] text-cyan-400 font-bold">(حساب آلي)</span>
+                                        </div>
+                                        <div className="w-full bg-darkCard border border-darkBorder rounded-xl px-3 py-2 text-purple-400 font-bold font-mono text-sm flex items-center justify-between">
+                                            <span>{totalPartsCost}</span>
+                                            <span className="text-xs text-gray-500">{settings.currency}</span>
+                                        </div>
                                     </div>
                                     <div className="col-span-2 sm:col-span-1 bg-darkCard p-2 rounded-xl border border-darkBorder flex flex-col justify-center text-center">
                                         <span className="text-[10px] text-gray-400">صافي ربح اليد العاملة</span>
-                                        <span className="text-base font-black text-emerald-400 font-mono">
+                                        <span className={`text-base font-black font-mono ${calculatedProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                                             {calculatedProfit} {settings.currency}
                                         </span>
                                     </div>
@@ -4924,6 +5472,32 @@
                                     <span className="text-gray-500">تاريخ الاستلام:</span>
                                     <span className="font-mono">{new Date(device.createdAt).toLocaleDateString('ar-MA')}</span>
                                 </div>
+
+                                {/* Spare parts itemization on receipt if any */}
+                                {((device.partsList && device.partsList.length > 0) || device.partsUsed) && (
+                                    <div className="border-b pb-2 pt-1">
+                                        <div className="flex justify-between items-center mb-1">
+                                            <span className="text-gray-500 font-bold">قطع الغيار المعتمدة:</span>
+                                            {device.partsList && device.partsList.length > 0 && (
+                                                <span className="text-[10px] text-gray-400 font-mono">({device.partsList.length} قطع)</span>
+                                            )}
+                                        </div>
+                                        {device.partsList && device.partsList.length > 0 ? (
+                                            <div className="space-y-1 pr-1.5 text-[11px]">
+                                                {device.partsList.map((p, pIdx) => (
+                                                    <div key={p.id || pIdx} className="flex justify-between items-center text-gray-800">
+                                                        <span className="font-medium">• {p.name || 'قطعة غيار'}</span>
+                                                        <span className="text-[10px] text-gray-500">
+                                                            {p.source === 'purchased_external' ? (p.supplier ? `(مورد: ${p.supplier})` : '(طلب خارجي)') : '(مخزون المحل)'}
+                                                        </span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <span className="text-gray-800 pr-1 text-[11px] block">• {device.partsUsed}</span>
+                                        )}
+                                    </div>
+                                )}
                             </div>
 
                             {/* Financial */}
