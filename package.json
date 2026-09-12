@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "node server.js",
+    "lint": "node -c server.js",
     "build": "mkdir -p dist && cp index.html dist/",
     "start": "node server.js"
   },
