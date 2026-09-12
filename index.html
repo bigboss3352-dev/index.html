@@ -11,18 +11,136 @@
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <!-- Babel for JSX -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
-<body class="bg-[#0b0f19] text-white min-h-screen flex items-center justify-center">
+<body class="bg-[#0b0f19] text-white min-h-screen">
     <div id="root"></div>
 
     <script type="text/babel">
         function App() {
+            const [activeTab, setActiveTab] = React.useState('dashboard');
+            const [clients, setClients] = React.useState([
+                { id: 1, name: 'محمد أحمد', phone: '0612345678', device: 'iPhone 13', issue: 'تغيير شاشة', status: 'قيد الإصلاح' }
+            ]);
+            
+            const [newName, setNewName] = React.useState('');
+            const [newPhone, setNewPhone] = React.useState('');
+            const [newDevice, setNewDevice] = React.useState('');
+            const [newIssue, setNewIssue] = React.useState('');
+
+            const addClient = (e) => {
+                e.preventDefault();
+                if (!newName || !newDevice) return;
+                const client = {
+                    id: Date.now(),
+                    name: newName,
+                    phone: newPhone,
+                    device: newDevice,
+                    issue: newIssue,
+                    status: 'جديد'
+                };
+                setClients([client, ...clients]);
+                setNewName('');
+                setNewPhone('');
+                setNewDevice('');
+                setNewIssue('');
+                setActiveTab('clients');
+            };
+
             return (
-                <div className="text-center p-6 bg-gray-900 border border-gray-800 rounded-xl shadow-2xl max-w-md w-full mx-4">
-                    <h1 className="text-3xl font-bold mb-3 text-emerald-400">CircuitFix 🚀</h1>
-                    <p className="text-gray-300 mb-4">نظام إدارة الورشة خدام 100% وبدون أخطاء!</p>
-                    <div className="p-3 bg-gray-800 rounded-lg text-sm text-gray-400">
-                        جاهز للإدارة والصيانة
+                <div className="flex min-h-screen bg-[#0b0f19]">
+                    {/* القائمة الجانبية */}
+                    <div className="w-64 bg-gray-900 border-l border-gray-800 p-4 hidden md:block">
+                        <h1 className="text-xl font-bold text-emerald-400 mb-6 flex items-center gap-2">
+                            <i className="fa-solid fa-screwdriver-wrench"></i> CircuitFix
+                        </h1>
+                        <nav className="space-y-2">
+                            <button 
+                                onClick={() => setActiveTab('dashboard')}
+                                className={`w-full text-right px-4 py-2.5 rounded-lg transition flex items-center gap-3 ${activeTab === 'dashboard' ? 'bg-emerald-600 text-white font-bold' : 'text-gray-400 hover:bg-gray-800'}`}>
+                                <i className="fa-solid fa-chart-pie w-5"></i> الرئيسية
+                            </button>
+                            <button 
+                                onClick={() => setActiveTab('clients')}
+                                className={`w-full text-right px-4 py-2.5 rounded-lg transition flex items-center gap-3 ${activeTab === 'clients' ? 'bg-emerald-600 text-white font-bold' : 'text-gray-400 hover:bg-gray-800'}`}>
+                                <i className="fa-solid fa-users w-5"></i> قائمة الزبناء
+                            </button>
+                            <button 
+                                onClick={() => setActiveTab('add')}
+                                className={`w-full text-right px-4 py-2.5 rounded-lg transition flex items-center gap-3 ${activeTab === 'add' ? 'bg-emerald-600 text-white font-bold' : 'text-gray-400 hover:bg-gray-800'}`}>
+                                <i className="fa-solid fa-plus-circle w-5"></i> إضافة جهاز جديد
+                            </button>
+                        </nav>
+                    </div>
+
+                    {/* محتوى الصفحة */}
+                    <div className="flex-1 p-6 overflow-y-auto">
+                        <header className="flex justify-between items-center mb-6 pb-4 border-b border-gray-800">
+                            <h2 className="text-2xl font-bold">نظام إدارة الورشة</h2>
+                            <span className="bg-emerald-500/10 text-emerald-400 text-sm px-3 py-1 rounded-full border border-emerald-500/20">النظام نشط 100%</span>
+                        </header>
+
+                        {/* لوحة القيادة */}
+                        {activeTab === 'dashboard' && (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="bg-gray-900 p-5 rounded-xl border border-gray-800">
+                                    <p className="text-gray-400 text-sm">إجمالي الأجهزة المسجلة</p>
+                                    <h3 className="text-3xl font-bold text-emerald-400 mt-2">{clients.length}</h3>
+                                </div>
+                                <div className="bg-gray-900 p-5 rounded-xl border border-gray-800">
+                                    <p className="text-gray-400 text-sm">حالة السيرفر</p>
+                                    <h3 className="text-3xl font-bold text-blue-400 mt-2">يعمل بامتياز</h3>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* قائمة الزبناء */}
+                        {activeTab === 'clients' && (
+                            <div className="bg-gray-900 p-5 rounded-xl border border-gray-800">
+                                <h3 className="text-xl font-bold mb-4 text-emerald-400">أجهزة وزبناء الورشة</h3>
+                                <div className="space-y-3">
+                                    {clients.map(c => (
+                                        <div key={c.id} className="p-4 bg-gray-800/50 rounded-lg border border-gray-700/50 flex justify-between items-center">
+                                            <div>
+                                                <h4 className="font-bold text-lg text-white">{c.name}</h4>
+                                                <p className="text-sm text-gray-300 mt-1"><span className="text-emerald-400">الجهاز:</span> {c.device} | <span className="text-amber-400">العطل:</span> {c.issue}</p>
+                                            </div>
+                                            <div className="text-left">
+                                                <span className="text-xs bg-blue-500/10 text-blue-400 px-3 py-1 rounded block mb-1">{c.phone || 'بدون هاتف'}</span>
+                                                <span className="text-xs bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded">{c.status}</span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* إضافة جهاز جديد */}
+                        {activeTab === 'add' && (
+                            <div className="bg-gray-900 p-6 rounded-xl border border-gray-800 max-w-xl mx-auto">
+                                <h3 className="text-xl font-bold mb-4 text-emerald-400">تسجيل جهاز جديد للورشة</h3>
+                                <form onSubmit={addClient} className="space-y-4">
+                                    <div>
+                                        <label className="block text-sm text-gray-400 mb-1">اسم الزبون</label>
+                                        <input type="text" value={newName} onChange={e => setNewName(e.target.value)} required className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2.5 text-white focus:outline-none focus:border-emerald-500" placeholder="مثال: يوسف العلوي" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm text-gray-400 mb-1">رقم الهاتف</label>
+                                        <input type="text" value={newPhone} onChange={e => setNewPhone(e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2.5 text-white focus:outline-none focus:border-emerald-500" placeholder="مثال: 0612345678" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm text-gray-400 mb-1">نوع الجهاز</label>
+                                        <input type="text" value={newDevice} onChange={e => setNewDevice(e.target.value)} required className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2.5 text-white focus:outline-none focus:border-emerald-500" placeholder="مثال: Samsung S22" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm text-gray-400 mb-1">وصف العطل</label>
+                                        <textarea value={newIssue} onChange={e => setNewIssue(e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2.5 text-white focus:outline-none focus:border-emerald-500" placeholder="تحديد المشكل بدقة..."></textarea>
+                                    </div>
+                                    <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 rounded-lg transition">حفظ الجهاز</button>
+                                </form>
+                            </div>
+                        )}
                     </div>
                 </div>
             );
