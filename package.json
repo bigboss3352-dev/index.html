@@ -1,0 +1,13 @@
+{
+  "name": "circuitfix-workshop-manager",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "node server.js",
+    "build": "mkdir -p dist && cp index.html dist/",
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^5.2.1"
+  }
+}

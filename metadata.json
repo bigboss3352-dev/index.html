@@ -1,0 +1,8 @@
+{
+  "name": "CircuitFix Workshop Manager",
+  "description": "نظام إدارة ورشة تصليح الأجهزة الإلكترونية والهواتف - CircuitFix Workshop Manager",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

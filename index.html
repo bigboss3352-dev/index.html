@@ -3,144 +3,2447 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CircuitFix Workshop Manager</title>
+    <title>CircuitFix | نظام إدارة الورشة وصيانة الهواتف</title>
+    <meta name="description" content="نظام إدارة ورشة تصليح الأجهزة الإلكترونية والهواتف المتكامل - CircuitFix Workshop Manager">
+    <meta property="og:title" content="CircuitFix | نظام إدارة الورشة وصيانة الهواتف">
+    <meta property="og:description" content="نظام إدارة ورشة تصليح الأجهزة الإلكترونية والهواتف المتكامل - CircuitFix Workshop Manager">
+    
+    <!-- Google Fonts: Cairo & JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+    
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Cairo', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        darkBg: '#070b14',
+                        darkCard: 'rgba(13, 20, 36, 0.84)',
+                        darkCardSecondary: 'rgba(19, 29, 50, 0.88)',
+                        darkBorder: 'rgba(31, 46, 77, 0.75)',
+                        darkBorderHover: 'rgba(56, 189, 248, 0.45)',
+                    }
+                }
+            }
+        }
+    </script>
+    
     <!-- React & ReactDOM -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <!-- Babel for JSX -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <!-- FontAwesome Icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
+    <style>
+        body {
+            font-family: 'Cairo', sans-serif;
+            background-color: #070b14;
+            color: #f3f4f6;
+            -webkit-tap-highlight-color: transparent;
+        }
+        /* Glassmorphism for cards over the circuit board */
+        .bg-darkCard {
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+        .bg-darkCardSecondary {
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #070b14;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #1f293d;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #374151;
+        }
+        @media print {
+            .no-print {
+                display: none !important;
+            }
+            .print-only {
+                display: block !important;
+            }
+            body {
+                background: #fff !important;
+                color: #000 !important;
+            }
+        }
+    </style>
 </head>
-<body class="bg-[#0b0f19] text-white min-h-screen">
+<body class="bg-darkBg text-gray-100 min-h-screen selection:bg-emerald-500 selection:text-white">
     <div id="root"></div>
 
     <script type="text/babel">
-        function App() {
-            const [activeTab, setActiveTab] = React.useState('dashboard');
-            const [clients, setClients] = React.useState([
-                { id: 1, name: 'محمد أحمد', phone: '0612345678', device: 'iPhone 13', issue: 'تغيير شاشة', status: 'قيد الإصلاح' }
-            ]);
-            
-            const [newName, setNewName] = React.useState('');
-            const [newPhone, setNewPhone] = React.useState('');
-            const [newDevice, setNewDevice] = React.useState('');
-            const [newIssue, setNewIssue] = React.useState('');
+        const { useState, useEffect, useMemo } = React;
 
-            const addClient = (e) => {
-                e.preventDefault();
-                if (!newName || !newDevice) return;
-                const client = {
-                    id: Date.now(),
-                    name: newName,
-                    phone: newPhone,
-                    device: newDevice,
-                    issue: newIssue,
-                    status: 'جديد'
+        // Status definitions with colors & icons
+        const STATUS_CONFIG = {
+            'new': { label: 'جديد', color: 'text-sky-400 bg-sky-500/10 border-sky-500/30', icon: 'fa-circle-plus', borderAccent: 'border-r-sky-500' },
+            'in_progress': { label: 'قيد الإصلاح', color: 'text-amber-400 bg-amber-500/10 border-amber-500/30', icon: 'fa-screwdriver-wrench', borderAccent: 'border-r-amber-500' },
+            'waiting_parts': { label: 'بانتظار قطع غيار', color: 'text-purple-400 bg-purple-500/10 border-purple-500/30', icon: 'fa-hourglass-half', borderAccent: 'border-r-purple-500' },
+            'ready': { label: 'جاهز للاستلام', color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30', icon: 'fa-circle-check', borderAccent: 'border-r-emerald-500' },
+            'delivered': { label: 'تم التسليم', color: 'text-slate-400 bg-slate-500/10 border-slate-500/30', icon: 'fa-box-archive', borderAccent: 'border-r-slate-500' }
+        };
+
+        const PRIORITY_CONFIG = {
+            'urgent': { label: 'عاجل جداً / طارئ', color: 'text-rose-400 bg-rose-500/15 border-rose-500/30', icon: 'fa-fire' },
+            'high': { label: 'أولوية عالية', color: 'text-amber-400 bg-amber-500/15 border-amber-500/30', icon: 'fa-triangle-exclamation' },
+            'normal': { label: 'أولوية عادية', color: 'text-blue-400 bg-blue-500/15 border-blue-500/30', icon: 'fa-circle-info' }
+        };
+
+        // Common quick tags for issues
+        const COMMON_ISSUE_TAGS = [
+            'عطل الشاشة (Screen / OLED)',
+            'عطل البوردة (Motherboard)',
+            'دخول الماء (Water Damage)',
+            'عطل البطارية (Battery)',
+            'منفذ الشحن (Charging Port)',
+            'عطل الصوت (Audio / Mic)',
+            'الزجاج الخلفي (Back Glass)',
+            'الكاميرا (Camera)',
+            'عطل صيانة (Hardware Issue)',
+            'سوفتوير (Software / Flash)'
+        ];
+
+        // Quick capsules for spare parts
+        const QUICK_PARTS = [
+            'شاشة OLED',
+            'بطارية أصلية',
+            'كونكتور الشحن',
+            'فلكس الباور والصوت',
+            'آي سي الباور (Power IC)',
+            'كاميرا خلفية',
+            'سماعة أذن',
+            'لاصق شاشة أصلي',
+            'زجاج حماية'
+        ];
+
+        // Initial default settings
+        const DEFAULT_SETTINGS = {
+            workshopName: 'CircuitFix Phone Repair',
+            phone: '0612345678',
+            address: 'شارع الحسن الثاني، مركز المدينة، الدار البيضاء',
+            rib: '181 330 21111 8899001122 45', // Default RIB
+            includeRibInWhatsApp: true,
+            currency: 'د.م.',
+            technicians: ['يوسف السالمي', 'إلياس المرابط', 'هشام التازي'],
+            circuitTheme: 'emerald', // 'emerald' | 'cyan' | 'amber' | 'purple'
+            circuitOpacity: 75, // 15 to 100
+            circuitPulse: true
+        };
+
+        // Initial devices list matching the screenshot inspiration
+        const INITIAL_DEVICES = [
+            {
+                id: 'REP-2026-101',
+                customerName: 'صوفيا رينولدز',
+                phone: '0655234567',
+                deviceModel: 'Apple iPhone 15 Pro Max',
+                issue: 'دخول ماء البحر المالح، الجهاز فاصل باور وشورت بالحرارة على البوردة',
+                tags: ['دخول الماء (Water Damage)', 'عطل البوردة (Motherboard)'],
+                passcode: '2580',
+                priority: 'urgent',
+                status: 'in_progress',
+                technician: 'يوسف السالمي',
+                repairCost: 1250,
+                partsCost: 420,
+                partsUsed: 'تنظيف ألتراسونيك + تبديل مكثفات الشورت وآي سي الباور',
+                isOverdue: true,
+                createdAt: new Date(Date.now() - 86400000 * 3).toISOString()
+            },
+            {
+                id: 'REP-2026-102',
+                customerName: 'ألكسندر هايز',
+                phone: '0671876543',
+                deviceModel: 'Samsung Galaxy S24 Ultra (512GB)',
+                issue: 'سقوط قوي على الزاوية، الشاشة مكسورة وبها خطوط خضراء AMOLED',
+                tags: ['عطل الشاشة (Screen / OLED)', 'الزجاج الخلفي (Back Glass)'],
+                passcode: '0000',
+                priority: 'high',
+                status: 'waiting_parts',
+                technician: 'إلياس المرابط',
+                repairCost: 1450,
+                partsCost: 890,
+                partsUsed: 'شاشة Dynamic AMOLED 2X أصلية مع الفريم',
+                isOverdue: false,
+                createdAt: new Date(Date.now() - 86400000 * 2).toISOString()
+            },
+            {
+                id: 'REP-2026-104',
+                customerName: 'أوليفيا مارتينيز',
+                phone: '0681321987',
+                deviceModel: 'Apple iPhone 15 Pro (Titanium)',
+                issue: 'كسر زجاج الشاشة الخارجي واللمس يتقطع عند الزوايا',
+                tags: ['عطل الشاشة (Screen / OLED)', 'عطل الصوت (Audio / Mic)'],
+                passcode: '1472',
+                priority: 'high',
+                status: 'ready',
+                technician: 'يوسف السالمي',
+                repairCost: 1200,
+                partsCost: 550,
+                partsUsed: 'شاشة أصلية كاملة + سبيكر داخلي',
+                isOverdue: true,
+                createdAt: new Date(Date.now() - 86400000 * 4).toISOString()
+            },
+            {
+                id: 'REP-2026-103',
+                customerName: 'ليام تشن',
+                phone: '0691432109',
+                deviceModel: 'Google Pixel 8 (Obsidian)',
+                issue: 'انتفاخ شديد في البطارية تسبب في فتح الغطاء الخلفي للجهاز',
+                tags: ['عطل البطارية (Battery)', 'عطل صيانة (Hardware Issue)'],
+                passcode: '7890',
+                priority: 'normal',
+                status: 'new',
+                technician: 'هشام التازي',
+                repairCost: 420,
+                partsCost: 160,
+                partsUsed: 'بطارية أصلية G10 + شريط عازل مقاوم للماء',
+                isOverdue: false,
+                createdAt: new Date(Date.now() - 86400000).toISOString()
+            },
+            {
+                id: 'REP-2026-100',
+                customerName: 'حمزة الإدريسي',
+                phone: '0611223344',
+                deviceModel: 'Xiaomi 13 Pro',
+                issue: 'منفذ الشحن متخلخل ولا يشحن إلا بزاوية معينة',
+                tags: ['منفذ الشحن (Charging Port)'],
+                passcode: '3698',
+                priority: 'normal',
+                status: 'delivered',
+                technician: 'هشام التازي',
+                repairCost: 260,
+                partsCost: 65,
+                partsUsed: 'كونكتور شحن أصلي Type-C',
+                isOverdue: false,
+                createdAt: new Date(Date.now() - 86400000 * 5).toISOString()
+            }
+        ];
+
+        // Initial inventory parts
+        const INITIAL_INVENTORY = [
+            { id: 1, name: 'شاشة iPhone 15 Pro OLED', category: 'شاشات', quantity: 3, minAlert: 2, cost: 550, salePrice: 850 },
+            { id: 2, name: 'بطارية Samsung S24 Ultra', category: 'بطاريات', quantity: 1, minAlert: 2, cost: 180, salePrice: 320 },
+            { id: 3, name: 'كونكتور شحن Type-C متعدد', category: 'كونكتورات', quantity: 14, minAlert: 5, cost: 15, salePrice: 100 },
+            { id: 4, name: 'آي سي باور PMIC متنوع', category: 'آيسيات', quantity: 2, minAlert: 3, cost: 95, salePrice: 250 }
+        ];
+
+        /* -------------------------------------------------------------
+           CIRCUIT BACKGROUND COMPONENT (High-Fidelity PCB Schematic)
+           ------------------------------------------------------------- */
+        function CircuitBackground({ theme = 'emerald', opacity = 75, pulse = true }) {
+            const themes = {
+                emerald: {
+                    primary: '#10b981',
+                    secondary: '#06b6d4',
+                    accent: '#34d399',
+                    chipBody: '#031713',
+                    glowColor1: 'rgba(6, 182, 212, 0.18)',
+                    glowColor2: 'rgba(16, 185, 129, 0.16)',
+                    highlight: '#6ee7b7'
+                },
+                cyan: {
+                    primary: '#06b6d4',
+                    secondary: '#3b82f6',
+                    accent: '#38bdf8',
+                    chipBody: '#031628',
+                    glowColor1: 'rgba(6, 182, 212, 0.22)',
+                    glowColor2: 'rgba(59, 130, 246, 0.18)',
+                    highlight: '#7dd3fc'
+                },
+                amber: {
+                    primary: '#f59e0b',
+                    secondary: '#fbbf24',
+                    accent: '#fde047',
+                    chipBody: '#220e03',
+                    glowColor1: 'rgba(245, 158, 11, 0.18)',
+                    glowColor2: 'rgba(234, 88, 12, 0.14)',
+                    highlight: '#fef08a'
+                },
+                purple: {
+                    primary: '#a855f7',
+                    secondary: '#ec4899',
+                    accent: '#c084fc',
+                    chipBody: '#19062b',
+                    glowColor1: 'rgba(168, 85, 247, 0.18)',
+                    glowColor2: 'rgba(236, 72, 153, 0.14)',
+                    highlight: '#f0abfc'
+                }
+            };
+
+            const current = themes[theme] || themes.emerald;
+            const opacityVal = (opacity || 75) / 100;
+
+            return (
+                <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden select-none" aria-hidden="true">
+                    {/* Deep Space Obsidian Base Background */}
+                    <div className="absolute inset-0 bg-[#070b14]" />
+
+                    {/* Ambient Radial Atmospheric Glows */}
+                    <div 
+                        className="absolute -top-32 -right-32 w-[600px] h-[600px] rounded-full blur-[130px] transition-all duration-700 pointer-events-none"
+                        style={{ background: current.glowColor1 }}
+                    />
+                    <div 
+                        className="absolute -bottom-32 -left-32 w-[600px] h-[600px] rounded-full blur-[140px] transition-all duration-700 pointer-events-none"
+                        style={{ background: current.glowColor2 }}
+                    />
+                    <div 
+                        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[750px] h-[750px] rounded-full blur-[180px] opacity-35 transition-all duration-700 pointer-events-none"
+                        style={{ background: current.glowColor1 }}
+                    />
+
+                    {/* Electronic Board Vector Schematic Layer */}
+                    <svg 
+                        className="absolute inset-0 w-full h-full transition-opacity duration-500" 
+                        style={{ opacity: opacityVal }}
+                        xmlns="http://www.w3.org/2000/svg"
+                    >
+                        <defs>
+                            {/* Glowing Filters */}
+                            <filter id="pcb-glow" x="-20%" y="-20%" width="140%" height="140%">
+                                <feGaussianBlur stdDeviation="2.5" result="blur" />
+                                <feMerge>
+                                    <feMergeNode in="blur" />
+                                    <feMergeNode in="SourceGraphic" />
+                                </feMerge>
+                            </filter>
+                            <filter id="node-glow" x="-50%" y="-50%" width="200%" height="200%">
+                                <feGaussianBlur stdDeviation="3" result="glow" />
+                                <feMerge>
+                                    <feMergeNode in="glow" />
+                                    <feMergeNode in="SourceGraphic" />
+                                </feMerge>
+                            </filter>
+
+                            {/* Master PCB Pattern Tile (600 x 600) */}
+                            <pattern id="circuit-pattern" width="600" height="600" patternUnits="userSpaceOnUse">
+                                {/* Technical Micro-Grid & Crosshairs */}
+                                <g opacity="0.14">
+                                    {[0, 100, 200, 300, 400, 500].map(x => (
+                                        <g key={'grid-' + x}>
+                                            <line x1={x} y1="0" x2={x} y2="600" stroke={current.secondary} strokeWidth="0.5" strokeDasharray="2 8" />
+                                            <line x1="0" y1={x} x2="600" y2={x} stroke={current.secondary} strokeWidth="0.5" strokeDasharray="2 8" />
+                                        </g>
+                                    ))}
+                                    {[[100, 100], [500, 100], [100, 500], [500, 500], [300, 100], [300, 500]].map(([cx, cy], i) => (
+                                        <g key={'cross-' + i} stroke={current.primary} strokeWidth="0.8">
+                                            <line x1={cx - 6} y1={cy} x2={cx + 6} y2={cy} />
+                                            <line x1={cx} y1={cy - 6} x2={cx} y2={cy + 6} />
+                                            <circle cx={cx} cy={cy} r="3" fill="none" />
+                                        </g>
+                                    ))}
+                                </g>
+
+                                {/* ============ PCB TRACES & BUSES (45° angle routing) ============ */}
+                                <g stroke={current.primary} strokeWidth="1.6" fill="none" strokeLinecap="round" strokeLinejoin="round" opacity="0.75">
+                                    {/* Bus Lane 1 (Horizontal Top Multi-Trace) */}
+                                    <path d="M 0,35 L 120,35 L 155,70 L 245,70 L 280,35 L 600,35" />
+                                    <path d="M 0,48 L 115,48 L 150,83 L 240,83 L 275,48 L 600,48" strokeWidth="1.2" opacity="0.6" />
+                                    <path d="M 0,61 L 110,61 L 145,96 L 235,96 L 270,61 L 600,61" strokeWidth="1.2" opacity="0.5" />
+                                    <path d="M 0,74 L 105,74 L 140,109 L 230,109 L 265,74 L 600,74" strokeWidth="1" opacity="0.4" />
+
+                                    {/* Bus Lane 2 (Vertical Left Multi-Trace) */}
+                                    <path d="M 35,0 L 35,140 L 70,175 L 70,390 L 35,425 L 35,600" />
+                                    <path d="M 48,0 L 48,135 L 83,170 L 83,385 L 48,420 L 48,600" strokeWidth="1.2" opacity="0.6" />
+                                    <path d="M 61,0 L 61,130 L 96,165 L 96,380 L 61,415 L 61,600" strokeWidth="1.2" opacity="0.5" />
+
+                                    {/* Center MCU Interconnect Traces */}
+                                    <path d="M 175,70 L 175,180 L 220,225 L 260,225" />
+                                    <path d="M 215,83 L 215,160 L 250,195 L 280,195 L 280,260" stroke={current.secondary} strokeWidth="1.4" />
+                                    <path d="M 340,260 L 340,195 L 370,195 L 415,150 L 415,70" stroke={current.secondary} strokeWidth="1.4" />
+                                    <path d="M 340,340 L 380,380 L 440,380 L 480,420 L 480,520 L 440,560 L 380,560" />
+                                    <path d="M 260,340 L 220,380 L 160,380 L 120,420 L 120,530 L 80,570 L 0,570" />
+
+                                    {/* Diagonal Arteries */}
+                                    <path d="M 600,180 L 530,180 L 490,220 L 450,220 L 410,260" />
+                                    <path d="M 600,195 L 535,195 L 495,235 L 455,235 L 420,270" strokeWidth="1.2" opacity="0.6" />
+                                    <path d="M 600,430 L 510,430 L 460,480 L 360,480 L 330,510 L 330,600" />
+                                    <path d="M 0,280 L 90,280 L 130,320 L 170,320 L 210,360 L 210,480 L 180,510 L 0,510" />
+                                    <path d="M 0,190 L 80,190 L 110,220 L 160,220" />
+                                    <path d="M 380,0 L 380,90 L 420,130 L 480,130 L 520,170 L 520,270 L 560,310 L 600,310" />
+                                </g>
+
+                                {/* Secondary Faint Data Lines */}
+                                <g stroke={current.secondary} strokeWidth="1" fill="none" opacity="0.32" strokeDasharray="8 4">
+                                    <path d="M 120,35 L 120,0" />
+                                    <path d="M 280,35 L 280,0" />
+                                    <path d="M 70,390 L 140,390 L 170,420 L 230,420" />
+                                    <path d="M 440,380 L 440,310 L 490,260 L 540,260" />
+                                    <path d="M 360,480 L 360,540 L 400,580 L 600,580" />
+                                </g>
+
+                                {/* ============ INTEGRATED CIRCUITS (CHIPS & PACKAGES) ============ */}
+                                {/* U1: Main Processor QFP-48 Package at (300, 300) */}
+                                <g transform="translate(300, 300)">
+                                    <rect x="-42" y="-42" width="84" height="84" rx="6" fill={current.chipBody} stroke={current.primary} strokeWidth="2" filter="url(#pcb-glow)" />
+                                    <rect x="-35" y="-35" width="70" height="70" rx="3" fill="#040812" stroke={current.secondary} strokeWidth="0.8" opacity="0.7" />
+                                    <circle cx="-28" cy="-28" r="2.5" fill={current.accent} />
+                                    <text x="0" y="-8" fill={current.primary} fontSize="7" fontFamily="monospace" fontWeight="bold" textAnchor="middle" letterSpacing="0.5">CIRCUITFIX</text>
+                                    <text x="0" y="4" fill={current.accent} fontSize="6" fontFamily="monospace" textAnchor="middle">CORE-MCU</text>
+                                    <text x="0" y="16" fill={current.secondary} fontSize="5" fontFamily="monospace" textAnchor="middle" opacity="0.8">REV 2026.4</text>
+
+                                    {/* QFP Pins around Perimeter */}
+                                    {[-28, -20, -12, -4, 4, 12, 20, 28].map(pos => (
+                                        <g key={'pin-' + pos} stroke={current.primary} strokeWidth="1.3">
+                                            <line x1={pos} y1="-42" x2={pos} y2="-52" />
+                                            <line x1={pos} y1="42" x2={pos} y2="52" />
+                                            <line x1="-42" y1={pos} x2="-52" y2={pos} />
+                                            <line x1="42" y1={pos} x2="52" y2={pos} />
+                                        </g>
+                                    ))}
+                                </g>
+
+                                {/* U2: Power Management IC (PMIC) at (120, 110) */}
+                                <g transform="translate(120, 110)">
+                                    <rect x="-24" y="-18" width="48" height="36" rx="3" fill={current.chipBody} stroke={current.primary} strokeWidth="1.5" />
+                                    <circle cx="-16" cy="-10" r="1.8" fill={current.accent} />
+                                    <text x="0" y="2" fill={current.accent} fontSize="5.5" fontFamily="monospace" fontWeight="bold" textAnchor="middle">PMIC_V2</text>
+                                    {[-12, -4, 4, 12].map(pos => (
+                                        <g key={'pmic-pin-' + pos} stroke={current.primary} strokeWidth="1.2">
+                                            <line x1={pos} y1="-18" x2={pos} y2="-24" />
+                                            <line x1={pos} y1="18" x2={pos} y2="24" />
+                                        </g>
+                                    ))}
+                                </g>
+
+                                {/* U3: BGA Flash / Storage Chip at (480, 120) */}
+                                <g transform="translate(480, 120)">
+                                    <rect x="-30" y="-22" width="60" height="44" rx="4" fill={current.chipBody} stroke={current.secondary} strokeWidth="1.5" />
+                                    <text x="0" y="2" fill={current.secondary} fontSize="5.5" fontFamily="monospace" fontWeight="bold" textAnchor="middle">NAND_256G</text>
+                                    {[-18, -6, 6, 18].map(bx => (
+                                        [-12, 12].map(by => (
+                                            <circle key={'bga-' + bx + '-' + by} cx={bx} cy={by} r="1.5" fill={current.primary} opacity="0.7" />
+                                        ))
+                                    ))}
+                                </g>
+
+                                {/* X1: Crystal Oscillator at (440, 430) */}
+                                <g transform="translate(440, 430)">
+                                    <rect x="-18" y="-12" width="36" height="24" rx="8" fill="#040e1a" stroke={current.highlight} strokeWidth="1.4" />
+                                    <text x="0" y="3" fill={current.highlight} fontSize="6" fontFamily="monospace" textAnchor="middle">26.000</text>
+                                    <circle cx="-18" cy="0" r="2.5" fill={current.primary} />
+                                    <circle cx="18" cy="0" r="2.5" fill={current.primary} />
+                                </g>
+
+                                {/* ============ PASSIVES & SMD COMPONENTS ============ */}
+                                <g transform="translate(160, 110)">
+                                    <rect x="-6" y="-5" width="4" height="10" rx="1" fill={current.accent} />
+                                    <rect x="2" y="-5" width="4" height="10" rx="1" fill={current.accent} />
+                                    <line x1="-6" y1="0" x2="-14" y2="0" stroke={current.primary} strokeWidth="1" />
+                                    <line x1="6" y1="0" x2="14" y2="0" stroke={current.primary} strokeWidth="1" />
+                                    <text x="0" y="13" fill={current.primary} fontSize="4.5" fontFamily="monospace" textAnchor="middle">C104</text>
+                                </g>
+
+                                <g transform="translate(210, 50)">
+                                    <rect x="-6" y="-4" width="4" height="8" rx="0.8" fill={current.primary} />
+                                    <rect x="2" y="-4" width="4" height="8" rx="0.8" fill={current.primary} />
+                                    <text x="0" y="11" fill={current.secondary} fontSize="4.5" fontFamily="monospace" textAnchor="middle">R10K</text>
+                                </g>
+
+                                <g transform="translate(360, 175)">
+                                    <rect x="-4" y="-6" width="8" height="4" rx="0.8" fill={current.accent} />
+                                    <rect x="-4" y="2" width="8" height="4" rx="0.8" fill={current.accent} />
+                                    <text x="14" y="2" fill={current.primary} fontSize="4.5" fontFamily="monospace">C22u</text>
+                                </g>
+
+                                <g transform="translate(100, 450)">
+                                    <rect x="-5" y="-3" width="3" height="6" fill={current.secondary} />
+                                    <rect x="2" y="-3" width="3" height="6" fill={current.secondary} />
+                                    <text x="0" y="11" fill={current.secondary} fontSize="4.5" fontFamily="monospace" textAnchor="middle">R470</text>
+                                </g>
+
+                                {/* ============ SOLDER VIAS & TEST POINTS ============ */}
+                                {[
+                                    [120, 35, 'TP_VCC'], [155, 70, '3V3'], [245, 70, 'SDA'], [280, 35, 'SCL'],
+                                    [35, 140, 'GND'], [70, 175, 'VBAT'], [70, 390, 'INT'], [35, 425, 'RST'],
+                                    [175, 70, 'CLK'], [215, 83, 'MISO'], [415, 70, 'MOSI'], [480, 520, 'TXD'],
+                                    [120, 530, 'RXD'], [530, 180, '5V_IN'], [510, 430, 'USB_DP'], [460, 480, 'USB_DM'],
+                                    [90, 280, 'TP1'], [170, 320, 'TP2'], [380, 560, 'GND_PAD'], [560, 310, 'VBUS']
+                                ].map(([vx, vy, lbl], idx) => (
+                                    <g key={'via-' + idx} transform={`translate(${vx}, ${vy})`}>
+                                        <circle cx="0" cy="0" r="4.5" fill="#040812" stroke={current.primary} strokeWidth="1.5" />
+                                        <circle cx="0" cy="0" r="1.8" fill={current.highlight} filter="url(#node-glow)" />
+                                        <text x="6" y="-4" fill={current.accent} fontSize="5" fontFamily="monospace" opacity="0.85">{lbl}</text>
+                                    </g>
+                                ))}
+
+                                {/* Ground Stitching Vias */}
+                                {[
+                                    [25, 25], [40, 25], [25, 40],
+                                    [565, 25], [580, 25], [580, 40],
+                                    [25, 565], [40, 580], [25, 580],
+                                    [565, 580], [580, 565], [580, 580]
+                                ].map(([gx, gy], gi) => (
+                                    <circle key={'gnd-via-' + gi} cx={gx} cy={gy} r="2.2" fill="none" stroke={current.primary} strokeWidth="1" opacity="0.6" />
+                                ))}
+
+                                {/* Technical Silkscreen Markings */}
+                                <g fill={current.primary} opacity="0.7" fontFamily="monospace" fontSize="6">
+                                    <text x="25" y="592" letterSpacing="1">BOARD: CIRCUITFIX-PRO-REV4</text>
+                                    <text x="440" y="592" letterSpacing="0.5">ESD PROTECTED / RoHS</text>
+                                    <text x="35" y="95" transform="rotate(-90 35 95)">HIGH_SPEED_BUS_0</text>
+                                    <text x="590" y="240" transform="rotate(-90 590 240)">RF_ANT_SHIELD</text>
+                                </g>
+                            </pattern>
+                        </defs>
+
+                        {/* Full Pattern Fill */}
+                        <rect width="100%" height="100%" fill="url(#circuit-pattern)" />
+
+                        {/* ============ LIVE ANIMATED SIGNAL PULSES ============ */}
+                        {pulse && (
+                            <g filter="url(#node-glow)">
+                                <circle r="3.5" fill={current.highlight}>
+                                    <animateMotion 
+                                        path="M 0,35 L 120,35 L 155,70 L 245,70 L 280,35 L 600,35" 
+                                        dur="4.5s" 
+                                        repeatCount="indefinite" 
+                                    />
+                                </circle>
+                                <circle r="3" fill={current.secondary}>
+                                    <animateMotion 
+                                        path="M 600,180 L 530,180 L 490,220 L 450,220 L 410,260 L 340,260" 
+                                        dur="5.8s" 
+                                        repeatCount="indefinite" 
+                                    />
+                                </circle>
+                                <circle r="3.5" fill={current.accent}>
+                                    <animateMotion 
+                                        path="M 35,0 L 35,140 L 70,175 L 70,390 L 35,425 L 35,600" 
+                                        dur="6.2s" 
+                                        repeatCount="indefinite" 
+                                    />
+                                </circle>
+                                <circle r="3" fill={current.highlight}>
+                                    <animateMotion 
+                                        path="M 0,280 L 90,280 L 130,320 L 170,320 L 210,360 L 210,480 L 180,510 L 0,510" 
+                                        dur="7.4s" 
+                                        repeatCount="indefinite" 
+                                    />
+                                </circle>
+                            </g>
+                        )}
+                    </svg>
+
+                    {/* Subtle Vignette & Scanline Overlay */}
+                    <div 
+                        className="absolute inset-0 pointer-events-none" 
+                        style={{
+                            background: 'radial-gradient(circle at 50% 50%, transparent 40%, rgba(5, 9, 17, 0.75) 100%)',
+                        }}
+                    />
+                </div>
+            );
+        }
+
+        function App() {
+            // Role: 'manager' | 'worker'
+            const [role, setRole] = useState(() => localStorage.getItem('circuitfix_role') || 'manager');
+
+            // Active Tab: 'dashboard' | 'tickets' | 'customers' | 'inventory' | 'settings'
+            const [activeTab, setActiveTab] = useState('dashboard');
+
+            // Workshop Settings
+            const [settings, setSettings] = useState(() => {
+                const saved = localStorage.getItem('circuitfix_settings');
+                if (saved) {
+                    try { return { ...DEFAULT_SETTINGS, ...JSON.parse(saved) }; } catch(e) { console.error(e); }
+                }
+                return DEFAULT_SETTINGS;
+            });
+
+            // Devices list
+            const [devices, setDevices] = useState(() => {
+                const saved = localStorage.getItem('circuitfix_devices');
+                if (saved) {
+                    try { return JSON.parse(saved); } catch(e) { console.error(e); }
+                }
+                return INITIAL_DEVICES;
+            });
+
+            // Inventory state
+            const [inventory, setInventory] = useState(() => {
+                const saved = localStorage.getItem('circuitfix_inventory');
+                if (saved) {
+                    try { return JSON.parse(saved); } catch(e) { console.error(e); }
+                }
+                return INITIAL_INVENTORY;
+            });
+
+            // Search & Filter
+            const [searchQuery, setSearchQuery] = useState('');
+            const [statusFilter, setStatusFilter] = useState('all');
+
+            // Modals
+            const [showNewIntakeModal, setShowNewIntakeModal] = useState(false);
+            const [editingDevice, setEditingDevice] = useState(null);
+            const [whatsAppModalDevice, setWhatsAppModalDevice] = useState(null);
+            const [receiptModalDevice, setReceiptModalDevice] = useState(null);
+            const [deviceToDelete, setDeviceToDelete] = useState(null);
+
+            // Passcode visibility tracker by device ID
+            const [revealedPasscodes, setRevealedPasscodes] = useState({});
+
+            // Notification toast
+            const [toast, setToast] = useState(null);
+
+            // Save to localStorage
+            useEffect(() => {
+                localStorage.setItem('circuitfix_role', role);
+            }, [role]);
+
+            useEffect(() => {
+                localStorage.setItem('circuitfix_settings', JSON.stringify(settings));
+            }, [settings]);
+
+            useEffect(() => {
+                localStorage.setItem('circuitfix_devices', JSON.stringify(devices));
+            }, [devices]);
+
+            useEffect(() => {
+                localStorage.setItem('circuitfix_inventory', JSON.stringify(inventory));
+            }, [inventory]);
+
+            const showToast = (message, type = 'success') => {
+                setToast({ message, type });
+                setTimeout(() => setToast(null), 3500);
+            };
+
+            const togglePasscode = (id) => {
+                setRevealedPasscodes(prev => ({
+                    ...prev,
+                    [id]: !prev[id]
+                }));
+            };
+
+            // Switch status of ticket
+            const handleUpdateStatus = (deviceId, newStatus) => {
+                setDevices(prev => prev.map(d => {
+                    if (d.id === deviceId) {
+                        return { ...d, status: newStatus, updatedAt: new Date().toISOString() };
+                    }
+                    return d;
+                }));
+                showToast(`تم تحديث تذكرة ${deviceId} إلى "${STATUS_CONFIG[newStatus].label}"`);
+            };
+
+            // Delete ticket
+            const handleDeleteDevice = () => {
+                if (!deviceToDelete) return;
+                setDevices(prev => prev.filter(d => d.id !== deviceToDelete.id));
+                showToast(`تم حذف التذكرة ${deviceToDelete.id}`);
+                setDeviceToDelete(null);
+            };
+
+            // Next Ticket ID generator
+            const getNextTicketId = () => {
+                const year = new Date().getFullYear();
+                const nums = devices
+                    .map(d => {
+                        const match = d.id.match(/REP-\d+-(\d+)/);
+                        return match ? parseInt(match[1], 10) : 0;
+                    })
+                    .filter(n => !isNaN(n));
+                const nextNum = nums.length > 0 ? Math.max(...nums) + 1 : 105;
+                return `REP-${year}-${nextNum}`;
+            };
+
+            // Filtered Devices
+            const filteredDevices = useMemo(() => {
+                return devices.filter(d => {
+                    const q = searchQuery.trim().toLowerCase();
+                    const matchesQuery = !q || (
+                        d.id.toLowerCase().includes(q) ||
+                        d.customerName.toLowerCase().includes(q) ||
+                        d.phone.includes(q) ||
+                        d.deviceModel.toLowerCase().includes(q) ||
+                        d.issue.toLowerCase().includes(q) ||
+                        (d.technician && d.technician.toLowerCase().includes(q))
+                    );
+                    const matchesStatus = statusFilter === 'all' || d.status === statusFilter;
+                    return matchesQuery && matchesStatus;
+                });
+            }, [devices, searchQuery, statusFilter]);
+
+            // Financial & KPI Computations
+            const stats = useMemo(() => {
+                const total = devices.length;
+                const inProgress = devices.filter(d => d.status === 'in_progress').length;
+                const waitingParts = devices.filter(d => d.status === 'waiting_parts').length;
+                const ready = devices.filter(d => d.status === 'ready').length;
+                const delivered = devices.filter(d => d.status === 'delivered').length;
+                const urgent = devices.filter(d => d.priority === 'urgent' && d.status !== 'delivered').length;
+
+                // Total revenues
+                const totalRevenue = devices.reduce((sum, d) => sum + (Number(d.repairCost) || 0), 0);
+                const totalPartsCost = devices.reduce((sum, d) => sum + (Number(d.partsCost) || 0), 0);
+                const netProfit = totalRevenue - totalPartsCost;
+
+                // Stock alerts
+                const lowStockCount = inventory.filter(item => item.quantity <= item.minAlert).length;
+
+                return {
+                    total,
+                    inProgress,
+                    waitingParts,
+                    ready,
+                    delivered,
+                    urgent,
+                    totalRevenue,
+                    totalPartsCost,
+                    netProfit,
+                    lowStockCount
                 };
-                setClients([client, ...clients]);
-                setNewName('');
-                setNewPhone('');
-                setNewDevice('');
-                setNewIssue('');
-                setActiveTab('clients');
+            }, [devices, inventory]);
+
+            // WhatsApp link generator with RIB and professional formatting
+            const buildWhatsAppMessage = (device, customText = '', includeRib = settings.includeRibInWhatsApp) => {
+                const custName = device.customerName;
+                const model = device.deviceModel;
+                const ticketId = device.id;
+                const cost = device.repairCost || 0;
+                const rib = settings.rib;
+                const workshop = settings.workshopName;
+
+                let message = `السلام عليكم أخي الكريم ${custName}،\n`;
+                
+                if (device.status === 'ready') {
+                    message += `نخبركم من ورشة *${workshop}* أن جهازكم *${model}* (تذكرة رقم: *#${ticketId}*) قد تم إصلاحه بنجاح وهو *جاهز للاستلام* الآن ✅.\n\n`;
+                    message += `💰 المبلغ المطلوب للإصلاح: *${cost} ${settings.currency}*\n`;
+                } else if (device.status === 'in_progress') {
+                    message += `نحيطكم علماً بأن جهازكم *${model}* (تذكرة رقم: *#${ticketId}*) هو حالياً *قيد الفحص والإصلاح* في ورشة *${workshop}* 🛠️.\n`;
+                    message += `سنوافيكم بإشعار فوري عند اكتماله.\n`;
+                } else if (device.status === 'waiting_parts') {
+                    message += `بخصوص جهازكم *${model}* (تذكرة: *#${ticketId}*) لدى ورشة *${workshop}*:\n`;
+                    message += `نحن بانتظار استلام قطعة الغيار الأصلية المطلوبة لضمان أعلى جودة ⏳.\n`;
+                } else {
+                    message += `معك ورشة *${workshop}* بخصوص جهازك *${model}* (تذكرة: *#${ticketId}*).\n`;
+                }
+
+                // Add RIB if enabled
+                if (includeRib && rib) {
+                    message += `\n💳 *للدفع المباشر عبر التحويل البنكي (RIB):*\n\`${rib}\`\n(يرجى إرسال وصل التحويل عند إتمامه)\n`;
+                }
+
+                if (customText) {
+                    message += `\nملاحظة إضافية: ${customText}\n`;
+                }
+
+                message += `\n📍 مرحباً بكم في الورشة، وشكراً جزيلاً لثقتكم بنا.`;
+
+                return message;
+            };
+
+            const openWhatsApp = (device, customText = '', includeRib = settings.includeRibInWhatsApp) => {
+                let phone = device.phone.replace(/[^0-9]/g, '');
+                if (phone.startsWith('0')) {
+                    phone = '212' + phone.substring(1);
+                }
+                const text = buildWhatsAppMessage(device, customText, includeRib);
+                const url = `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
+                window.open(url, '_blank');
             };
 
             return (
-                <div className="flex min-h-screen bg-[#0b0f19]">
-                    {/* القائمة الجانبية */}
-                    <div className="w-64 bg-gray-900 border-l border-gray-800 p-4 hidden md:block">
-                        <h1 className="text-xl font-bold text-emerald-400 mb-6 flex items-center gap-2">
-                            <i className="fa-solid fa-screwdriver-wrench"></i> CircuitFix
-                        </h1>
-                        <nav className="space-y-2">
-                            <button 
+                <div className="flex h-screen overflow-hidden bg-darkBg text-gray-200 relative">
+                    {/* Electronic PCB Circuit Board Schematic Background */}
+                    <CircuitBackground 
+                        theme={settings.circuitTheme || 'emerald'}
+                        opacity={settings.circuitOpacity !== undefined ? settings.circuitOpacity : 75}
+                        pulse={settings.circuitPulse !== false}
+                    />
+
+                    {/* Toast Notification */}
+                    {toast && (
+                        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-emerald-600 text-white px-5 py-3 rounded-2xl shadow-2xl font-bold flex items-center gap-3 border border-emerald-400 animate-fade-in text-sm">
+                            <i className="fa-solid fa-circle-check text-lg"></i>
+                            <span>{toast.message}</span>
+                        </div>
+                    )}
+
+                    {/* DESKTOP SIDEBAR */}
+                    <aside className="w-64 bg-darkCard border-l border-darkBorder flex-col justify-between hidden md:flex flex-shrink-0 z-20">
+                        <div>
+                            {/* Brand Header */}
+                            <div className="p-5 border-b border-darkBorder flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-700 flex items-center justify-center text-white shadow-lg shadow-emerald-900/40">
+                                        <i className="fa-solid fa-microchip text-lg"></i>
+                                    </div>
+                                    <div className="overflow-hidden">
+                                        <h1 className="font-extrabold text-base text-white tracking-wide flex items-center gap-1.5 truncate">
+                                            {settings.workshopName || 'CircuitFix'}
+                                        </h1>
+                                        <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">PRO WORKSHOP</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Role Switcher */}
+                            <div className="p-4 border-b border-darkBorder/60">
+                                <label className="text-[11px] font-semibold text-gray-400 mb-1.5 block">وضع التحكم الحالي:</label>
+                                <div className="grid grid-cols-2 gap-1 p-1 bg-darkBg rounded-xl border border-darkBorder text-xs font-bold">
+                                    <button 
+                                        id="role-switch-manager"
+                                        onClick={() => { setRole('manager'); showToast('تم التفعيل: وضع المدير (إشراف مالي وكامل)'); }}
+                                        className={`py-2 rounded-lg transition flex items-center justify-center gap-1.5 ${role === 'manager' ? 'bg-emerald-600 text-white shadow' : 'text-gray-400 hover:text-white'}`}>
+                                        <i className="fa-solid fa-chart-line text-[11px]"></i>
+                                        <span>المدير</span>
+                                    </button>
+                                    <button 
+                                        id="role-switch-worker"
+                                        onClick={() => { setRole('worker'); showToast('تم التفعيل: وضع التقني (استلام وصيانة)'); }}
+                                        className={`py-2 rounded-lg transition flex items-center justify-center gap-1.5 ${role === 'worker' ? 'bg-emerald-600 text-white shadow' : 'text-gray-400 hover:text-white'}`}>
+                                        <i className="fa-solid fa-wrench text-[11px]"></i>
+                                        <span>التقني</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Nav Links */}
+                            <nav className="p-3 space-y-1.5">
+                                <button
+                                    id="nav-dashboard-btn"
+                                    onClick={() => setActiveTab('dashboard')}
+                                    className={`w-full text-right px-4 py-3 rounded-xl font-medium transition flex items-center justify-between text-sm ${activeTab === 'dashboard' ? 'bg-emerald-600/15 text-emerald-400 border border-emerald-500/30 font-bold' : 'text-gray-400 hover:text-white hover:bg-gray-800/60'}`}>
+                                    <div className="flex items-center gap-3">
+                                        <i className="fa-solid fa-table-cells-large w-5 text-center"></i>
+                                        <span>الرئيسية والمراقبة</span>
+                                    </div>
+                                    <span className="text-xs px-2 py-0.5 rounded-full bg-gray-800 text-gray-300 font-bold">{devices.length}</span>
+                                </button>
+
+                                <button
+                                    id="nav-tickets-btn"
+                                    onClick={() => setActiveTab('tickets')}
+                                    className={`w-full text-right px-4 py-3 rounded-xl font-medium transition flex items-center justify-between text-sm ${activeTab === 'tickets' ? 'bg-emerald-600/15 text-emerald-400 border border-emerald-500/30 font-bold' : 'text-gray-400 hover:text-white hover:bg-gray-800/60'}`}>
+                                    <div className="flex items-center gap-3">
+                                        <i className="fa-solid fa-screwdriver-wrench w-5 text-center"></i>
+                                        <span>تذاكر الإصلاح</span>
+                                    </div>
+                                    {stats.urgent > 0 && (
+                                        <span className="text-[10px] bg-rose-500/20 text-rose-400 px-1.5 py-0.5 rounded-full font-bold border border-rose-500/30">
+                                            {stats.urgent} عاجل
+                                        </span>
+                                    )}
+                                </button>
+
+                                <button
+                                    id="nav-customers-btn"
+                                    onClick={() => setActiveTab('customers')}
+                                    className={`w-full text-right px-4 py-3 rounded-xl font-medium transition flex items-center justify-between text-sm ${activeTab === 'customers' ? 'bg-emerald-600/15 text-emerald-400 border border-emerald-500/30 font-bold' : 'text-gray-400 hover:text-white hover:bg-gray-800/60'}`}>
+                                    <div className="flex items-center gap-3">
+                                        <i className="fa-solid fa-users w-5 text-center"></i>
+                                        <span>سجل الزبائن</span>
+                                    </div>
+                                </button>
+
+                                <button
+                                    id="nav-inventory-btn"
+                                    onClick={() => setActiveTab('inventory')}
+                                    className={`w-full text-right px-4 py-3 rounded-xl font-medium transition flex items-center justify-between text-sm ${activeTab === 'inventory' ? 'bg-emerald-600/15 text-emerald-400 border border-emerald-500/30 font-bold' : 'text-gray-400 hover:text-white hover:bg-gray-800/60'}`}>
+                                    <div className="flex items-center gap-3">
+                                        <i className="fa-solid fa-microchip w-5 text-center"></i>
+                                        <span>القطع والمخزون</span>
+                                    </div>
+                                    {stats.lowStockCount > 0 && (
+                                        <span className="text-[10px] bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded-full font-bold">
+                                            {stats.lowStockCount} ناقص
+                                        </span>
+                                    )}
+                                </button>
+
+                                <button
+                                    id="nav-settings-btn"
+                                    onClick={() => setActiveTab('settings')}
+                                    className={`w-full text-right px-4 py-3 rounded-xl font-medium transition flex items-center justify-between text-sm ${activeTab === 'settings' ? 'bg-emerald-600/15 text-emerald-400 border border-emerald-500/30 font-bold' : 'text-gray-400 hover:text-white hover:bg-gray-800/60'}`}>
+                                    <div className="flex items-center gap-3">
+                                        <i className="fa-solid fa-gear w-5 text-center"></i>
+                                        <span>إعدادات الورشة والـ RIB</span>
+                                    </div>
+                                </button>
+                            </nav>
+                        </div>
+
+                        {/* Sidebar Footer info */}
+                        <div className="p-4 border-t border-darkBorder">
+                            <div className="bg-darkBg p-3 rounded-xl border border-darkBorder text-xs text-gray-400 space-y-1.5">
+                                <div className="flex justify-between items-center text-gray-300 font-semibold">
+                                    <span>الحساب البنكي (RIB):</span>
+                                    <span className="text-emerald-400 text-[10px] font-mono">مفعل</span>
+                                </div>
+                                <p className="text-[10px] text-gray-500 truncate font-mono" title={settings.rib}>
+                                    {settings.rib || 'لم يتم تعيين RIB'}
+                                </p>
+                            </div>
+                        </div>
+                    </aside>
+
+                    {/* MAIN CONTAINER */}
+                    <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+                        {/* Top Header Bar */}
+                        <header className="h-16 bg-darkCard border-b border-darkBorder px-4 md:px-6 flex items-center justify-between flex-shrink-0 z-10">
+                            {/* Left Brand / Status */}
+                            <div className="flex items-center gap-3">
+                                <div className="md:hidden flex items-center gap-2">
+                                    <div className="w-8 h-8 rounded-lg bg-emerald-600 flex items-center justify-center text-white">
+                                        <i className="fa-solid fa-microchip text-sm"></i>
+                                    </div>
+                                    <span className="font-extrabold text-white text-base truncate max-w-[130px]">
+                                        {settings.workshopName || 'CircuitFix'}
+                                    </span>
+                                </div>
+
+                                <div className="hidden md:flex items-center gap-2 text-xs">
+                                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                    <span className="text-gray-300 font-medium">سيرفر الورشة متصل وحفظ تلقائي مباشر</span>
+                                </div>
+                            </div>
+
+                            {/* Right Actions */}
+                            <div className="flex items-center gap-2 md:gap-3">
+                                {/* Role Badge */}
+                                <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-darkBg border border-darkBorder text-xs">
+                                    <span className="text-gray-400">الصلاحية:</span>
+                                    <span className="font-bold text-emerald-400 flex items-center gap-1">
+                                        <i className={`fa-solid ${role === 'manager' ? 'fa-user-tie' : 'fa-wrench'}`}></i>
+                                        {role === 'manager' ? 'المدير العام' : 'التقني المعتمد'}
+                                    </span>
+                                </div>
+
+                                {/* Urgent badge notification */}
+                                {stats.urgent > 0 && (
+                                    <button 
+                                        onClick={() => { setActiveTab('tickets'); setStatusFilter('all'); }}
+                                        className="relative p-2 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-400 hover:bg-rose-500/25 transition"
+                                        title={`${stats.urgent} أجهزة عاجلة أو متأخرة`}>
+                                        <i className="fa-solid fa-bell text-sm"></i>
+                                        <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-500 text-white text-[10px] font-black flex items-center justify-center">
+                                            {stats.urgent}
+                                        </span>
+                                    </button>
+                                )}
+
+                                {/* Big Green Button: + استلام هاتف (Intake) */}
+                                <button 
+                                    id="header-new-intake-btn"
+                                    onClick={() => { setEditingDevice(null); setShowNewIntakeModal(true); }}
+                                    className="bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs md:text-sm px-3.5 md:px-5 py-2.5 rounded-xl transition flex items-center gap-2 shadow-lg shadow-emerald-950/50">
+                                    <i className="fa-solid fa-mobile-screen-button"></i>
+                                    <span>+ استلام هاتف</span>
+                                </button>
+                            </div>
+                        </header>
+
+                        {/* BODY CONTENT - SCROLLABLE */}
+                        <main className="flex-1 overflow-y-auto p-4 md:p-6 pb-24 md:pb-8">
+                            
+                            {/* ================= VIEW 1: DASHBOARD ================= */}
+                            {activeTab === 'dashboard' && (
+                                <div className="space-y-6 max-w-7xl mx-auto">
+                                    {/* Console Banner */}
+                                    <div className="bg-gradient-to-r from-darkCardSecondary via-darkCard to-darkBg rounded-2xl border border-darkBorder p-5 md:p-6 relative overflow-hidden">
+                                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10">
+                                            <div>
+                                                <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300 text-[11px] font-bold uppercase tracking-wider mb-2">
+                                                    <i className="fa-solid fa-shield-halved"></i>
+                                                    <span>{role === 'manager' ? 'MANAGER OPERATIONS CONSOLE' : 'TECHNICIAN WORKBENCH CONSOLE'}</span>
+                                                </div>
+                                                <h2 className="text-xl md:text-2xl font-black text-white">
+                                                    نظرة عامة والتحكم في ورشة الصيانة
+                                                </h2>
+                                                <p className="text-xs md:text-sm text-gray-400 mt-1 max-w-2xl">
+                                                    متابعة فورية للأجهزة المستلمة، المواعيد العاجلة، قطع الغيار، ومراقبة المداخيل وصافي الأرباح.
+                                                </p>
+                                            </div>
+
+                                            <div className="flex items-center gap-2">
+                                                <button
+                                                    onClick={() => { setEditingDevice(null); setShowNewIntakeModal(true); }}
+                                                    className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl transition flex items-center gap-2 shadow">
+                                                    <i className="fa-solid fa-plus"></i>
+                                                    <span>استلام جديد (New Intake)</span>
+                                                </button>
+                                                <button
+                                                    onClick={() => setActiveTab('settings')}
+                                                    className="px-4 py-2.5 bg-gray-800 hover:bg-gray-700 text-gray-200 text-xs font-bold rounded-xl transition flex items-center gap-2 border border-gray-700">
+                                                    <i className="fa-solid fa-sliders text-emerald-400"></i>
+                                                    <span>إعدادات الورشة</span>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* 4 Metric KPI Cards matching the screenshot */}
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                                        {/* Card 1: Ready for pickup */}
+                                        <div 
+                                            onClick={() => { setActiveTab('tickets'); setStatusFilter('ready'); }}
+                                            className="bg-darkCard p-5 rounded-2xl border border-darkBorder hover:border-emerald-500/50 transition cursor-pointer flex flex-col justify-between group">
+                                            <div className="flex items-center justify-between mb-3">
+                                                <span className="text-xs text-gray-400 font-bold">جاهز للاستلام</span>
+                                                <div className="w-9 h-9 rounded-xl bg-cyan-500/10 text-cyan-400 flex items-center justify-center border border-cyan-500/20 group-hover:scale-110 transition">
+                                                    <i className="fa-solid fa-circle-check"></i>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <div className="flex items-baseline gap-2">
+                                                    <span className="text-3xl font-black text-white">{stats.ready}</span>
+                                                    <span className="text-xs text-gray-400">أجهزة مكتملة</span>
+                                                </div>
+                                                <p className="text-[11px] text-cyan-400 mt-1">فحص الجودة مكتمل 100%</p>
+                                            </div>
+                                        </div>
+
+                                        {/* Card 2: Active repairs */}
+                                        <div 
+                                            onClick={() => { setActiveTab('tickets'); setStatusFilter('in_progress'); }}
+                                            className="bg-darkCard p-5 rounded-2xl border border-darkBorder hover:border-emerald-500/50 transition cursor-pointer flex flex-col justify-between group">
+                                            <div className="flex items-center justify-between mb-3">
+                                                <span className="text-xs text-gray-400 font-bold">قيد الصيانة النشطة</span>
+                                                <div className="w-9 h-9 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center border border-emerald-500/20 group-hover:scale-110 transition">
+                                                    <i className="fa-solid fa-screwdriver-wrench"></i>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <div className="flex items-baseline gap-2">
+                                                    <span className="text-3xl font-black text-white">{stats.inProgress}</span>
+                                                    {stats.urgent > 0 && (
+                                                        <span className="text-xs font-bold text-rose-400">({stats.urgent} عاجل)</span>
+                                                    )}
+                                                </div>
+                                                <p className="text-[11px] text-gray-400 mt-1">على طاولات العمل الآن</p>
+                                            </div>
+                                        </div>
+
+                                        {/* Card 3: Stock alerts */}
+                                        <div 
+                                            onClick={() => setActiveTab('inventory')}
+                                            className="bg-darkCard p-5 rounded-2xl border border-darkBorder hover:border-emerald-500/50 transition cursor-pointer flex flex-col justify-between group">
+                                            <div className="flex items-center justify-between mb-3">
+                                                <span className="text-xs text-gray-400 font-bold">تنبيهات قطع الغيار</span>
+                                                <div className="w-9 h-9 rounded-xl bg-rose-500/10 text-rose-400 flex items-center justify-center border border-rose-500/20 group-hover:scale-110 transition">
+                                                    <i className="fa-solid fa-microchip"></i>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <div className="flex items-baseline gap-2">
+                                                    <span className="text-3xl font-black text-rose-400">{stats.lowStockCount}</span>
+                                                    <span className="text-xs text-gray-400">قطع ناقصة</span>
+                                                </div>
+                                                <p className="text-[11px] text-gray-500 mt-1">تحت حد الأمان الأدنى</p>
+                                            </div>
+                                        </div>
+
+                                        {/* Card 4: Revenue / Net Profit */}
+                                        <div 
+                                            onClick={() => setActiveTab('settings')}
+                                            className="bg-darkCard p-5 rounded-2xl border border-darkBorder hover:border-emerald-500/50 transition cursor-pointer flex flex-col justify-between group">
+                                            <div className="flex items-center justify-between mb-3">
+                                                <span className="text-xs text-gray-400 font-bold">المداخيل والأرباح</span>
+                                                <div className="w-9 h-9 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center border border-amber-500/20 group-hover:scale-110 transition">
+                                                    <i className="fa-solid fa-coins"></i>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <div className="flex items-baseline gap-2">
+                                                    <span className="text-2xl font-black text-emerald-400">{stats.totalRevenue.toLocaleString()} {settings.currency}</span>
+                                                </div>
+                                                <p className="text-[11px] text-gray-300 mt-1 flex items-center justify-between">
+                                                    <span>صافي الربح:</span>
+                                                    <span className="font-bold text-emerald-400 font-mono">{stats.netProfit.toLocaleString()} {settings.currency}</span>
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Priority & Urgent Repairs Queue */}
+                                    <div className="space-y-4">
+                                        <div className="flex items-center justify-between">
+                                            <h3 className="text-base md:text-lg font-black text-white flex items-center gap-2">
+                                                <i className="fa-solid fa-fire text-rose-400"></i>
+                                                <span>طابور الأجهزة ذات الأولوية والعاجلة (Priority Queue)</span>
+                                            </h3>
+                                            <button 
+                                                onClick={() => { setActiveTab('tickets'); setStatusFilter('all'); }}
+                                                className="text-xs text-emerald-400 hover:text-emerald-300 font-bold flex items-center gap-1">
+                                                <span>عرض الكل ({devices.length})</span>
+                                                <i className="fa-solid fa-arrow-left text-[10px]"></i>
+                                            </button>
+                                        </div>
+
+                                        {/* Cards list */}
+                                        <div className="grid grid-cols-1 gap-3.5">
+                                            {devices.slice(0, 4).map(device => (
+                                                <DeviceCard
+                                                    key={device.id}
+                                                    device={device}
+                                                    settings={settings}
+                                                    isPasscodeVisible={revealedPasscodes[device.id]}
+                                                    onTogglePasscode={() => togglePasscode(device.id)}
+                                                    onUpdateStatus={(newSt) => handleUpdateStatus(device.id, newSt)}
+                                                    onOpenWhatsApp={() => setWhatsAppModalDevice(device)}
+                                                    onPrintReceipt={() => setReceiptModalDevice(device)}
+                                                    onEdit={() => { setEditingDevice(device); setShowNewIntakeModal(true); }}
+                                                    onDelete={() => setDeviceToDelete(device)}
+                                                />
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* ================= VIEW 2: ALL TICKETS ================= */}
+                            {activeTab === 'tickets' && (
+                                <div className="space-y-5 max-w-7xl mx-auto">
+                                    {/* Search and Filters */}
+                                    <div className="bg-darkCard p-4 rounded-2xl border border-darkBorder flex flex-col md:flex-row gap-3 items-center justify-between">
+                                        <div className="relative w-full md:w-96">
+                                            <i className="fa-solid fa-magnifying-glass absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-500 text-sm"></i>
+                                            <input
+                                                type="text"
+                                                value={searchQuery}
+                                                onChange={(e) => setSearchQuery(e.target.value)}
+                                                placeholder="ابحث برقم التذكرة، الموديل، الزبون، أو الهاتف..."
+                                                className="w-full bg-darkBg border border-darkBorder rounded-xl pr-10 pl-4 py-2.5 text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-emerald-500 transition"
+                                            />
+                                            {searchQuery && (
+                                                <button onClick={() => setSearchQuery('')} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300">
+                                                    <i className="fa-solid fa-xmark"></i>
+                                                </button>
+                                            )}
+                                        </div>
+
+                                        {/* Status Filter buttons */}
+                                        <div className="flex items-center gap-1.5 w-full md:w-auto overflow-x-auto pb-1 md:pb-0">
+                                            <button
+                                                onClick={() => setStatusFilter('all')}
+                                                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap ${statusFilter === 'all' ? 'bg-emerald-600 text-white' : 'bg-darkBg text-gray-400 border border-darkBorder'}`}>
+                                                الكل ({devices.length})
+                                            </button>
+                                            {Object.entries(STATUS_CONFIG).map(([stKey, stConf]) => {
+                                                const count = devices.filter(d => d.status === stKey).length;
+                                                return (
+                                                    <button
+                                                        key={stKey}
+                                                        onClick={() => setStatusFilter(stKey)}
+                                                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap flex items-center gap-1.5 ${statusFilter === stKey ? 'bg-emerald-600 text-white' : 'bg-darkBg text-gray-400 border border-darkBorder'}`}>
+                                                        <span>{stConf.label}</span>
+                                                        <span className="text-[10px] opacity-75">({count})</span>
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+
+                                    {/* Devices List */}
+                                    {filteredDevices.length === 0 ? (
+                                        <div className="bg-darkCard rounded-2xl border border-darkBorder p-12 text-center">
+                                            <div className="w-16 h-16 rounded-full bg-gray-800 text-gray-500 flex items-center justify-center mx-auto mb-3 text-2xl">
+                                                <i className="fa-solid fa-box-open"></i>
+                                            </div>
+                                            <h4 className="text-base font-bold text-white mb-1">لا توجد أجهزة مطابقة</h4>
+                                            <p className="text-xs text-gray-400 mb-4">جرب تعديل كلمة البحث أو تغيير التصفية الحالية.</p>
+                                            <button
+                                                onClick={() => { setSearchQuery(''); setStatusFilter('all'); }}
+                                                className="px-4 py-2 bg-emerald-600 text-white text-xs font-bold rounded-xl">
+                                                إعادة الضبط
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div className="grid grid-cols-1 gap-3.5">
+                                            {filteredDevices.map(device => (
+                                                <DeviceCard
+                                                    key={device.id}
+                                                    device={device}
+                                                    settings={settings}
+                                                    isPasscodeVisible={revealedPasscodes[device.id]}
+                                                    onTogglePasscode={() => togglePasscode(device.id)}
+                                                    onUpdateStatus={(newSt) => handleUpdateStatus(device.id, newSt)}
+                                                    onOpenWhatsApp={() => setWhatsAppModalDevice(device)}
+                                                    onPrintReceipt={() => setReceiptModalDevice(device)}
+                                                    onEdit={() => { setEditingDevice(device); setShowNewIntakeModal(true); }}
+                                                    onDelete={() => setDeviceToDelete(device)}
+                                                />
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* ================= VIEW 3: CUSTOMERS ================= */}
+                            {activeTab === 'customers' && (
+                                <div className="space-y-5 max-w-7xl mx-auto">
+                                    <div className="bg-darkCard p-5 rounded-2xl border border-darkBorder">
+                                        <h3 className="text-lg font-black text-white mb-1">دليل زبائن الورشة</h3>
+                                        <p className="text-xs text-gray-400">قائمة بجميع الزبائن المسجلين مع سجل أجهزتهم وإمكانية الاتصال المباشر والواتساب.</p>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                                        {/* Group devices by customer phone */}
+                                        {Object.values(
+                                            devices.reduce((acc, dev) => {
+                                                if (!acc[dev.phone]) {
+                                                    acc[dev.phone] = {
+                                                        name: dev.customerName,
+                                                        phone: dev.phone,
+                                                        devices: [],
+                                                        totalSpent: 0
+                                                    };
+                                                }
+                                                acc[dev.phone].devices.push(dev);
+                                                acc[dev.phone].totalSpent += (Number(dev.repairCost) || 0);
+                                                return acc;
+                                            }, {})
+                                        ).map((cust, idx) => (
+                                            <div key={idx} className="bg-darkCard p-5 rounded-2xl border border-darkBorder space-y-4">
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center font-bold text-base border border-emerald-500/20">
+                                                            {cust.name.charAt(0)}
+                                                        </div>
+                                                        <div>
+                                                            <h4 className="font-bold text-white text-sm">{cust.name}</h4>
+                                                            <span className="text-xs text-gray-400 font-mono">{cust.phone}</span>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex items-center gap-1.5">
+                                                        <a 
+                                                            href={`tel:${cust.phone}`} 
+                                                            className="w-8 h-8 rounded-lg bg-gray-800 hover:bg-emerald-600 text-gray-300 hover:text-white flex items-center justify-center text-xs transition"
+                                                            title="اتصال">
+                                                            <i className="fa-solid fa-phone"></i>
+                                                        </a>
+                                                        <button 
+                                                            onClick={() => openWhatsApp({ customerName: cust.name, phone: cust.phone, deviceModel: 'أجهزتكم', id: 'ALL', repairCost: cust.totalSpent, status: 'ready' })}
+                                                            className="w-8 h-8 rounded-lg bg-emerald-500/20 hover:bg-emerald-600 text-emerald-400 hover:text-white flex items-center justify-center text-xs transition border border-emerald-500/30"
+                                                            title="واتساب">
+                                                            <i className="fa-brands fa-whatsapp"></i>
+                                                        </button>
+                                                    </div>
+                                                </div>
+
+                                                <div className="bg-darkBg p-3 rounded-xl border border-darkBorder text-xs space-y-1.5">
+                                                    <div className="flex justify-between text-gray-400">
+                                                        <span>الأجهزة المسجلة:</span>
+                                                        <span className="font-bold text-white">{cust.devices.length}</span>
+                                                    </div>
+                                                    <div className="flex justify-between text-gray-400">
+                                                        <span>إجمالي المصاريف:</span>
+                                                        <span className="font-bold text-emerald-400 font-mono">{cust.totalSpent} {settings.currency}</span>
+                                                    </div>
+                                                </div>
+
+                                                <div className="space-y-1">
+                                                    <p className="text-[11px] text-gray-500 font-bold">آخر الأجهزة:</p>
+                                                    <div className="flex flex-wrap gap-1.5">
+                                                        {cust.devices.map(d => (
+                                                            <span key={d.id} className="text-[10px] px-2 py-0.5 rounded-md bg-gray-800 text-gray-300 border border-gray-700">
+                                                                {d.deviceModel} (#{d.id})
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* ================= VIEW 4: INVENTORY ================= */}
+                            {activeTab === 'inventory' && (
+                                <div className="space-y-5 max-w-7xl mx-auto">
+                                    <div className="bg-darkCard p-5 rounded-2xl border border-darkBorder flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                        <div>
+                                            <h3 className="text-lg font-black text-white mb-1">إدارة قطع الغيار والمخزون</h3>
+                                            <p className="text-xs text-gray-400">تتبع كميات الشاشات، البطاريات، وقطع الريب المتوفرة بالمحل مع تنبيهات النقص.</p>
+                                        </div>
+                                    </div>
+
+                                    {/* Inventory Table */}
+                                    <div className="bg-darkCard rounded-2xl border border-darkBorder overflow-hidden">
+                                        <div className="overflow-x-auto">
+                                            <table className="w-full text-right text-xs">
+                                                <thead className="bg-darkBg text-gray-400 border-b border-darkBorder uppercase font-mono">
+                                                    <tr>
+                                                        <th className="p-3.5">اسم القطعة</th>
+                                                        <th className="p-3.5">الصنف</th>
+                                                        <th className="p-3.5">الكمية المتوفرة</th>
+                                                        <th className="p-3.5">سعر التكلفة</th>
+                                                        <th className="p-3.5">سعر البيع/التركيب</th>
+                                                        <th className="p-3.5">الحالة</th>
+                                                        <th className="p-3.5 text-center">إجراءات</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-darkBorder">
+                                                    {inventory.map(item => {
+                                                        const isLow = item.quantity <= item.minAlert;
+                                                        return (
+                                                            <tr key={item.id} className="hover:bg-gray-800/30 transition">
+                                                                <td className="p-3.5 font-bold text-white">{item.name}</td>
+                                                                <td className="p-3.5 text-gray-400">{item.category}</td>
+                                                                <td className="p-3.5 font-bold font-mono">
+                                                                    <span className={isLow ? 'text-rose-400' : 'text-emerald-400'}>
+                                                                        {item.quantity} حبة
+                                                                    </span>
+                                                                </td>
+                                                                <td className="p-3.5 font-mono text-gray-300">{item.cost} {settings.currency}</td>
+                                                                <td className="p-3.5 font-mono text-emerald-400 font-bold">{item.salePrice} {settings.currency}</td>
+                                                                <td className="p-3.5">
+                                                                    {isLow ? (
+                                                                        <span className="px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-400 border border-rose-500/30 text-[10px] font-bold">
+                                                                            ⚠️ منخفض بالمخزن
+                                                                        </span>
+                                                                    ) : (
+                                                                        <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 text-[10px] font-bold">
+                                                                            متوفر
+                                                                        </span>
+                                                                    )}
+                                                                </td>
+                                                                <td className="p-3.5 text-center">
+                                                                    <div className="flex items-center justify-center gap-1">
+                                                                        <button 
+                                                                            onClick={() => {
+                                                                                setInventory(prev => prev.map(i => i.id === item.id ? { ...i, quantity: i.quantity + 1 } : i));
+                                                                                showToast(`تم زيادة كمية ${item.name}`);
+                                                                            }}
+                                                                            className="w-7 h-7 rounded bg-gray-800 hover:bg-emerald-600 text-gray-300 hover:text-white flex items-center justify-center text-xs">
+                                                                            <i className="fa-solid fa-plus"></i>
+                                                                        </button>
+                                                                        <button 
+                                                                            onClick={() => {
+                                                                                if (item.quantity > 0) {
+                                                                                    setInventory(prev => prev.map(i => i.id === item.id ? { ...i, quantity: i.quantity - 1 } : i));
+                                                                                }
+                                                                            }}
+                                                                            className="w-7 h-7 rounded bg-gray-800 hover:bg-rose-600 text-gray-300 hover:text-white flex items-center justify-center text-xs">
+                                                                            <i className="fa-solid fa-minus"></i>
+                                                                        </button>
+                                                                    </div>
+                                                                </td>
+                                                            </tr>
+                                                        );
+                                                    })}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* ================= VIEW 5: SETTINGS & RIB ================= */}
+                            {activeTab === 'settings' && (
+                                <div className="space-y-6 max-w-4xl mx-auto">
+                                    <div className="bg-darkCard p-6 rounded-2xl border border-darkBorder space-y-6">
+                                        <div className="border-b border-darkBorder pb-4">
+                                            <h3 className="text-xl font-black text-white flex items-center gap-2">
+                                                <i className="fa-solid fa-store text-emerald-400"></i>
+                                                <span>إعدادات الورشة وبيانات الحساب البنكي (RIB)</span>
+                                            </h3>
+                                            <p className="text-xs text-gray-400 mt-1">
+                                                قم بتهيئة اسم الورشة، ورقم الحساب البنكي (RIB) لتضمينه تلقائياً في رسائل الواتساب والوصولات للزبائن.
+                                            </p>
+                                        </div>
+
+                                        <form onSubmit={(e) => { e.preventDefault(); showToast('تم حفظ إعدادات الورشة بنجاح ✅'); }} className="space-y-4">
+                                            {/* Workshop Name */}
+                                            <div>
+                                                <label className="block text-xs font-bold text-gray-300 mb-1.5">
+                                                    اسم الورشة أو المحل (يظهر في الترويسة والرسائل):
+                                                </label>
+                                                <div className="relative">
+                                                    <i className="fa-solid fa-store absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-500 text-sm"></i>
+                                                    <input
+                                                        type="text"
+                                                        value={settings.workshopName}
+                                                        onChange={(e) => setSettings({ ...settings, workshopName: e.target.value })}
+                                                        required
+                                                        placeholder="مثال: CircuitFix Phone Repair"
+                                                        className="w-full bg-darkBg border border-darkBorder rounded-xl pr-10 pl-4 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500 font-bold"
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            {/* Bank Account / RIB - Highlighted */}
+                                            <div className="bg-emerald-950/20 border border-emerald-500/30 p-4 rounded-2xl space-y-2">
+                                                <div className="flex items-center justify-between">
+                                                    <label className="text-xs font-black text-emerald-400 flex items-center gap-2">
+                                                        <i className="fa-solid fa-building-columns text-sm"></i>
+                                                        <span>رقم الحساب البنكي لصاحب المحل (RIB):</span>
+                                                    </label>
+                                                    <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded font-mono font-bold">24 رقم</span>
+                                                </div>
+                                                <input
+                                                    type="text"
+                                                    value={settings.rib}
+                                                    onChange={(e) => setSettings({ ...settings, rib: e.target.value })}
+                                                    placeholder="مثال: 181 330 21111 8899001122 45"
+                                                    className="w-full bg-darkBg border border-emerald-500/40 rounded-xl px-4 py-2.5 text-sm text-emerald-300 font-mono tracking-wider focus:outline-none focus:border-emerald-400"
+                                                />
+                                                <div className="flex items-center gap-2 pt-1">
+                                                    <input
+                                                        type="checkbox"
+                                                        id="includeRib"
+                                                        checked={settings.includeRibInWhatsApp}
+                                                        onChange={(e) => setSettings({ ...settings, includeRibInWhatsApp: e.target.checked })}
+                                                        className="rounded bg-darkBg border-darkBorder text-emerald-600 focus:ring-emerald-500 w-4 h-4 cursor-pointer"
+                                                    />
+                                                    <label htmlFor="includeRib" className="text-xs text-gray-300 cursor-pointer select-none">
+                                                        تضمين رقم الحساب البنكي (RIB) تلقائياً في رسائل الواتساب عند إرسال التنبيهات بالدفع للزبائن.
+                                                    </label>
+                                                </div>
+                                            </div>
+
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                                <div>
+                                                    <label className="block text-xs font-bold text-gray-300 mb-1.5">هاتف الورشة الرسمي:</label>
+                                                    <input
+                                                        type="text"
+                                                        value={settings.phone}
+                                                        onChange={(e) => setSettings({ ...settings, phone: e.target.value })}
+                                                        placeholder="0612345678"
+                                                        className="w-full bg-darkBg border border-darkBorder rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-xs font-bold text-gray-300 mb-1.5">العملة المستعملة:</label>
+                                                    <input
+                                                        type="text"
+                                                        value={settings.currency}
+                                                        onChange={(e) => setSettings({ ...settings, currency: e.target.value })}
+                                                        placeholder="د.م. أو درهم"
+                                                        className="w-full bg-darkBg border border-darkBorder rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500"
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            <div>
+                                                <label className="block text-xs font-bold text-gray-300 mb-1.5">عنوان الورشة (يظهر في وصولات الاستلام):</label>
+                                                <input
+                                                    type="text"
+                                                    value={settings.address}
+                                                    onChange={(e) => setSettings({ ...settings, address: e.target.value })}
+                                                    placeholder="شارع..."
+                                                    className="w-full bg-darkBg border border-darkBorder rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500"
+                                                />
+                                            </div>
+
+                                            <button
+                                                type="submit"
+                                                className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-xl transition shadow-lg shadow-emerald-900/40 text-sm flex items-center justify-center gap-2">
+                                                <i className="fa-solid fa-floppy-disk"></i>
+                                                <span>حفظ التغييرات</span>
+                                            </button>
+                                        </form>
+
+                                        {/* Export / Reset */}
+                                        <div className="border-t border-darkBorder pt-4 flex flex-wrap items-center justify-between gap-3">
+                                            <div>
+                                                <h4 className="text-xs font-bold text-gray-300">النسخ الاحتياطي للبيانات:</h4>
+                                                <p className="text-[11px] text-gray-500">احفظ بيانات التذاكر والقطع في ملف JSON للرجوع إليها بأي وقت.</p>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <button
+                                                    onClick={() => {
+                                                        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({ settings, devices, inventory }, null, 2));
+                                                        const dlAnchorElem = document.createElement('a');
+                                                        dlAnchorElem.setAttribute("href", dataStr);
+                                                        dlAnchorElem.setAttribute("download", `circuitfix_backup_${new Date().toISOString().slice(0, 10)}.json`);
+                                                        dlAnchorElem.click();
+                                                        showToast('تم تحميل ملف النسخة الاحتياطية بنجاح');
+                                                    }}
+                                                    className="px-3.5 py-2 bg-gray-800 hover:bg-gray-700 text-gray-200 text-xs font-bold rounded-xl border border-gray-700 flex items-center gap-1.5">
+                                                    <i className="fa-solid fa-download"></i>
+                                                    <span>تصدير JSON</span>
+                                                </button>
+                                                <button
+                                                    onClick={() => {
+                                                        if (confirm('هل تريد فعلاً إعادة تعيين البيانات إلى النموذج الافتراضي؟')) {
+                                                            setDevices(INITIAL_DEVICES);
+                                                            setSettings(DEFAULT_SETTINGS);
+                                                            setInventory(INITIAL_INVENTORY);
+                                                            showToast('تمت إعادة تعيين البيانات');
+                                                        }
+                                                    }}
+                                                    className="px-3.5 py-2 bg-rose-500/15 hover:bg-rose-500/25 text-rose-400 text-xs font-bold rounded-xl border border-rose-500/30 flex items-center gap-1.5">
+                                                    <i className="fa-solid fa-rotate-left"></i>
+                                                    <span>إعادة الضبط</span>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Circuit Board Schematic Background Customizer Card */}
+                                    <div className="bg-darkCard p-6 rounded-2xl border border-darkBorder space-y-5">
+                                        <div className="border-b border-darkBorder pb-4 flex items-center justify-between">
+                                            <div>
+                                                <h3 className="text-lg font-black text-white flex items-center gap-2">
+                                                    <i className="fa-solid fa-microchip text-cyan-400"></i>
+                                                    <span>مخطط البوردة الإلكترونية والخلفية السيبرانية (PCB Schematic)</span>
+                                                </h3>
+                                                <p className="text-xs text-gray-400 mt-1">
+                                                    تخصيص نمط وتوهج مسارات الدوائر الإلكترونية، وشدة الإضاءة وإشارات الطاقة المتحركة في الخلفية.
+                                                </p>
+                                            </div>
+                                            <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 text-xs font-mono font-bold">
+                                                <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
+                                                <span>HARDWARE UI</span>
+                                            </span>
+                                        </div>
+
+                                        {/* Theme Selector Grid */}
+                                        <div>
+                                            <label className="block text-xs font-bold text-gray-300 mb-2.5">
+                                                اختر نمط ولون المخطط الإلكتروني:
+                                            </label>
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                                                {[
+                                                    { id: 'emerald', name: 'الأخضر السيبراني', desc: 'مطابق للصورة تماماً (زمرد وسيان)', primary: '#10b981', border: 'border-emerald-500' },
+                                                    { id: 'cyan', name: 'أزرق كوانتم', desc: 'إلكترونيات زرقاء فائقة الدقة', primary: '#06b6d4', border: 'border-cyan-500' },
+                                                    { id: 'amber', name: 'نحاسي / ذهبي', desc: 'مسارات النحاس والذهب الأصلية', primary: '#f59e0b', border: 'border-amber-500' },
+                                                    { id: 'purple', name: 'بنفسجي نيون', desc: 'طابع مستقبلي وتوهج تقني', primary: '#a855f7', border: 'border-purple-500' }
+                                                ].map(t => {
+                                                    const isSelected = (settings.circuitTheme || 'emerald') === t.id;
+                                                    return (
+                                                        <button
+                                                            type="button"
+                                                            key={t.id}
+                                                            onClick={() => {
+                                                                setSettings({ ...settings, circuitTheme: t.id });
+                                                                showToast(`تم تطبيق نمط: ${t.name}`);
+                                                            }}
+                                                            className={`p-3.5 rounded-xl border text-right transition flex flex-col justify-between gap-2 relative overflow-hidden ${isSelected ? `${t.border} bg-white/5 shadow-lg` : 'border-darkBorder bg-darkBg/60 hover:border-gray-600'}`}
+                                                        >
+                                                            <div className="flex items-center justify-between">
+                                                                <span className="w-3.5 h-3.5 rounded-full" style={{ backgroundColor: t.primary, boxShadow: `0 0 8px ${t.primary}` }} />
+                                                                {isSelected && (
+                                                                    <i className="fa-solid fa-circle-check text-xs" style={{ color: t.primary }}></i>
+                                                                )}
+                                                            </div>
+                                                            <div>
+                                                                <span className="font-bold text-white text-xs block">{t.name}</span>
+                                                                <span className="text-[10px] text-gray-400 block mt-0.5">{t.desc}</span>
+                                                            </div>
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+
+                                        {/* Opacity & Pulse Controls */}
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                                            {/* Opacity slider & pills */}
+                                            <div className="bg-darkBg/70 p-4 rounded-xl border border-darkBorder space-y-3">
+                                                <div className="flex items-center justify-between text-xs">
+                                                    <label className="font-bold text-gray-300">درجة سطوع ووضوح المخطط:</label>
+                                                    <span className="font-mono font-bold text-cyan-400">{settings.circuitOpacity !== undefined ? settings.circuitOpacity : 75}%</span>
+                                                </div>
+                                                <input 
+                                                    type="range"
+                                                    min="15"
+                                                    max="100"
+                                                    step="5"
+                                                    value={settings.circuitOpacity !== undefined ? settings.circuitOpacity : 75}
+                                                    onChange={(e) => setSettings({ ...settings, circuitOpacity: Number(e.target.value) })}
+                                                    className="w-full accent-cyan-500 cursor-pointer"
+                                                />
+                                                <div className="flex gap-2 text-[10px]">
+                                                    <button 
+                                                        type="button"
+                                                        onClick={() => setSettings({ ...settings, circuitOpacity: 35 })}
+                                                        className="flex-1 py-1 rounded bg-gray-800 hover:bg-gray-700 text-gray-300 font-bold border border-gray-700">
+                                                        خفيف (35%)
+                                                    </button>
+                                                    <button 
+                                                        type="button"
+                                                        onClick={() => setSettings({ ...settings, circuitOpacity: 75 })}
+                                                        className="flex-1 py-1 rounded bg-gray-800 hover:bg-gray-700 text-gray-300 font-bold border border-gray-700">
+                                                        متوازن (75%)
+                                                    </button>
+                                                    <button 
+                                                        type="button"
+                                                        onClick={() => setSettings({ ...settings, circuitOpacity: 100 })}
+                                                        className="flex-1 py-1 rounded bg-gray-800 hover:bg-gray-700 text-gray-300 font-bold border border-gray-700">
+                                                        ساطع (100%)
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            {/* Live Pulse Toggle */}
+                                            <div className="bg-darkBg/70 p-4 rounded-xl border border-darkBorder flex flex-col justify-between">
+                                                <div>
+                                                    <span className="font-bold text-gray-300 text-xs block mb-1">
+                                                        نبضات الطاقة وإشارات التدفق الإلكتروني:
+                                                    </span>
+                                                    <p className="text-[11px] text-gray-400">
+                                                        تفعيل إشارات ضوئية متحركة تسري باستمرار عبر مسارات المعالج والنواقل الكهربائية.
+                                                    </p>
+                                                </div>
+                                                <div className="flex items-center justify-between pt-3 border-t border-darkBorder/60">
+                                                    <span className="text-xs text-gray-300">
+                                                        الحالة: <strong className={settings.circuitPulse !== false ? "text-emerald-400" : "text-gray-500"}>{settings.circuitPulse !== false ? "نشطة ومتحركة" : "متوقفة"}</strong>
+                                                    </span>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            const nextVal = !(settings.circuitPulse !== false);
+                                                            setSettings({ ...settings, circuitPulse: nextVal });
+                                                            showToast(nextVal ? 'تم تفعيل نبضات الطاقة الإلكترونية' : 'تم إيقاف نبضات الطاقة');
+                                                        }}
+                                                        className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${settings.circuitPulse !== false ? 'bg-emerald-600/20 text-emerald-400 border border-emerald-500/40' : 'bg-gray-800 text-gray-400 border border-gray-700'}`}>
+                                                        <i className={`fa-solid ${settings.circuitPulse !== false ? 'fa-bolt text-amber-400' : 'fa-power-off'}`}></i>
+                                                        <span>{settings.circuitPulse !== false ? 'تشغيل' : 'تعطيل'}</span>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </main>
+
+                        {/* MOBILE BOTTOM NAVIGATION BAR */}
+                        <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-darkCard/95 backdrop-blur-md border-t border-darkBorder flex items-center justify-around z-30 px-2">
+                            <button
                                 onClick={() => setActiveTab('dashboard')}
-                                className={`w-full text-right px-4 py-2.5 rounded-lg transition flex items-center gap-3 ${activeTab === 'dashboard' ? 'bg-emerald-600 text-white font-bold' : 'text-gray-400 hover:bg-gray-800'}`}>
-                                <i className="fa-solid fa-chart-pie w-5"></i> الرئيسية
+                                className={`flex flex-col items-center justify-center w-14 py-1 text-xs transition ${activeTab === 'dashboard' ? 'text-emerald-400 font-bold' : 'text-gray-400'}`}>
+                                <i className="fa-solid fa-table-cells-large text-base mb-1"></i>
+                                <span className="text-[10px]">الرئيسية</span>
                             </button>
-                            <button 
-                                onClick={() => setActiveTab('clients')}
-                                className={`w-full text-right px-4 py-2.5 rounded-lg transition flex items-center gap-3 ${activeTab === 'clients' ? 'bg-emerald-600 text-white font-bold' : 'text-gray-400 hover:bg-gray-800'}`}>
-                                <i className="fa-solid fa-users w-5"></i> قائمة الزبناء
+
+                            <button
+                                onClick={() => setActiveTab('tickets')}
+                                className={`flex flex-col items-center justify-center w-14 py-1 text-xs transition relative ${activeTab === 'tickets' ? 'text-emerald-400 font-bold' : 'text-gray-400'}`}>
+                                <i className="fa-solid fa-screwdriver-wrench text-base mb-1"></i>
+                                <span className="text-[10px]">تذاكر الإصلاح</span>
+                                {stats.urgent > 0 && (
+                                    <span className="absolute top-1 right-2 w-2 h-2 rounded-full bg-rose-500"></span>
+                                )}
                             </button>
-                            <button 
-                                onClick={() => setActiveTab('add')}
-                                className={`w-full text-right px-4 py-2.5 rounded-lg transition flex items-center gap-3 ${activeTab === 'add' ? 'bg-emerald-600 text-white font-bold' : 'text-gray-400 hover:bg-gray-800'}`}>
-                                <i className="fa-solid fa-plus-circle w-5"></i> إضافة جهاز جديد
+
+                            {/* Floating Intake Button in Center */}
+                            <button
+                                onClick={() => { setEditingDevice(null); setShowNewIntakeModal(true); }}
+                                className="w-12 h-12 rounded-full bg-emerald-600 text-white flex items-center justify-center shadow-lg shadow-emerald-950 -mt-5 border-4 border-darkBg hover:scale-105 transition">
+                                <i className="fa-solid fa-plus text-lg"></i>
+                            </button>
+
+                            <button
+                                onClick={() => setActiveTab('customers')}
+                                className={`flex flex-col items-center justify-center w-14 py-1 text-xs transition ${activeTab === 'customers' ? 'text-emerald-400 font-bold' : 'text-gray-400'}`}>
+                                <i className="fa-solid fa-users text-base mb-1"></i>
+                                <span className="text-[10px]">الزبائن</span>
+                            </button>
+
+                            <button
+                                onClick={() => setActiveTab('inventory')}
+                                className={`flex flex-col items-center justify-center w-14 py-1 text-xs transition ${activeTab === 'inventory' ? 'text-emerald-400 font-bold' : 'text-gray-400'}`}>
+                                <i className="fa-solid fa-microchip text-base mb-1"></i>
+                                <span className="text-[10px]">القطع</span>
+                            </button>
+
+                            <button
+                                onClick={() => setActiveTab('settings')}
+                                className={`flex flex-col items-center justify-center w-14 py-1 text-xs transition ${activeTab === 'settings' ? 'text-emerald-400 font-bold' : 'text-gray-400'}`}>
+                                <i className="fa-solid fa-gear text-base mb-1"></i>
+                                <span className="text-[10px]">المزيد</span>
                             </button>
                         </nav>
                     </div>
 
-                    {/* محتوى الصفحة */}
-                    <div className="flex-1 p-6 overflow-y-auto">
-                        <header className="flex justify-between items-center mb-6 pb-4 border-b border-gray-800">
-                            <h2 className="text-2xl font-bold">نظام إدارة الورشة</h2>
-                            <span className="bg-emerald-500/10 text-emerald-400 text-sm px-3 py-1 rounded-full border border-emerald-500/20">النظام نشط 100%</span>
-                        </header>
+                    {/* ================= MODAL 1: NEW INTAKE / EDIT MODAL ================= */}
+                    {showNewIntakeModal && (
+                        <IntakeModal
+                            device={editingDevice}
+                            nextId={getNextTicketId()}
+                            settings={settings}
+                            onClose={() => { setShowNewIntakeModal(false); setEditingDevice(null); }}
+                            onSave={(savedDevice) => {
+                                if (editingDevice) {
+                                    setDevices(prev => prev.map(d => d.id === savedDevice.id ? savedDevice : d));
+                                    showToast(`تم تعديل بيانات التذكرة ${savedDevice.id}`);
+                                } else {
+                                    setDevices(prev => [savedDevice, ...prev]);
+                                    showToast(`تم تسجيل التذكرة الجديدة #${savedDevice.id} بنجاح 🎉`);
+                                }
+                                setShowNewIntakeModal(false);
+                                setEditingDevice(null);
+                            }}
+                        />
+                    )}
 
-                        {/* لوحة القيادة */}
-                        {activeTab === 'dashboard' && (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div className="bg-gray-900 p-5 rounded-xl border border-gray-800">
-                                    <p className="text-gray-400 text-sm">إجمالي الأجهزة المسجلة</p>
-                                    <h3 className="text-3xl font-bold text-emerald-400 mt-2">{clients.length}</h3>
+                    {/* ================= MODAL 2: WHATSAPP MESSAGING MODAL ================= */}
+                    {whatsAppModalDevice && (
+                        <WhatsAppModal
+                            device={whatsAppModalDevice}
+                            settings={settings}
+                            onClose={() => setWhatsAppModalDevice(null)}
+                            onSend={(customText, incRib) => {
+                                openWhatsApp(whatsAppModalDevice, customText, incRib);
+                                setWhatsAppModalDevice(null);
+                            }}
+                        />
+                    )}
+
+                    {/* ================= MODAL 3: PRINTABLE RECEIPT MODAL ================= */}
+                    {receiptModalDevice && (
+                        <ReceiptModal
+                            device={receiptModalDevice}
+                            settings={settings}
+                            onClose={() => setReceiptModalDevice(null)}
+                        />
+                    )}
+
+                    {/* ================= MODAL 4: DELETE CONFIRMATION ================= */}
+                    {deviceToDelete && (
+                        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+                            <div className="bg-darkCard border border-darkBorder rounded-2xl max-w-sm w-full p-6 text-center space-y-4 shadow-2xl">
+                                <div className="w-12 h-12 rounded-full bg-rose-500/15 text-rose-400 flex items-center justify-center mx-auto text-xl">
+                                    <i className="fa-solid fa-triangle-exclamation"></i>
                                 </div>
-                                <div className="bg-gray-900 p-5 rounded-xl border border-gray-800">
-                                    <p className="text-gray-400 text-sm">حالة السيرفر</p>
-                                    <h3 className="text-3xl font-bold text-blue-400 mt-2">يعمل بامتياز</h3>
+                                <h3 className="text-base font-bold text-white">تأكيد حذف التذكرة</h3>
+                                <p className="text-xs text-gray-400">
+                                    هل أنت متأكد من حذف تذكرة الجهاز #{deviceToDelete.id} ({deviceToDelete.deviceModel})؟ لا يمكن التراجع عن هذا الإجراء.
+                                </p>
+                                <div className="grid grid-cols-2 gap-2 pt-2">
+                                    <button
+                                        onClick={() => setDeviceToDelete(null)}
+                                        className="py-2.5 rounded-xl bg-gray-800 text-gray-300 text-xs font-bold hover:bg-gray-700">
+                                        إلغاء
+                                    </button>
+                                    <button
+                                        onClick={handleDeleteDevice}
+                                        className="py-2.5 rounded-xl bg-rose-600 text-white text-xs font-bold hover:bg-rose-500">
+                                        حذف نهائي
+                                    </button>
                                 </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        /* -------------------------------------------------------------
+           DEVICE CARD COMPONENT (Matches the screenshot layout & styles)
+           ------------------------------------------------------------- */
+        function DeviceCard({ device, settings, isPasscodeVisible, onTogglePasscode, onUpdateStatus, onOpenWhatsApp, onPrintReceipt, onEdit, onDelete }) {
+            const statusConf = STATUS_CONFIG[device.status] || STATUS_CONFIG['new'];
+            const priorityConf = PRIORITY_CONFIG[device.priority] || PRIORITY_CONFIG['normal'];
+            const profit = (Number(device.repairCost) || 0) - (Number(device.partsCost) || 0);
+
+            return (
+                <div 
+                    id={`ticket-${device.id}`}
+                    className={`bg-darkCard rounded-2xl border border-darkBorder hover:border-darkBorderHover transition shadow-lg overflow-hidden flex flex-col lg:flex-row justify-between border-r-4 ${statusConf.borderAccent}`}>
+                    
+                    {/* Main Details area */}
+                    <div className="p-4 md:p-5 flex-1 space-y-3">
+                        {/* Top badges bar */}
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                                {device.isOverdue && (
+                                    <span className="px-2 py-0.5 rounded-md bg-rose-500/20 text-rose-400 border border-rose-500/30 text-[10px] font-black font-mono flex items-center gap-1">
+                                        <i className="fa-solid fa-calendar-xmark text-[9px]"></i>
+                                        <span>OVERDUE</span>
+                                    </span>
+                                )}
+                                <span className={`px-2 py-0.5 rounded-md border text-[10px] font-bold flex items-center gap-1 ${priorityConf.color}`}>
+                                    <i className={`fa-solid ${priorityConf.icon} text-[9px]`}></i>
+                                    <span>{priorityConf.label}</span>
+                                </span>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                                <span className="font-mono text-xs font-bold text-gray-400">
+                                    {device.id}
+                                </span>
+                                <i className="fa-solid fa-mobile-screen-button text-gray-500 text-xs"></i>
+                            </div>
+                        </div>
+
+                        {/* Device Model Title */}
+                        <div>
+                            <h3 className="font-extrabold text-base md:text-lg text-white flex items-center gap-2">
+                                <span>{device.deviceModel}</span>
+                            </h3>
+                            <p className="text-xs text-gray-300 mt-1 line-clamp-2">
+                                {device.issue}
+                            </p>
+                        </div>
+
+                        {/* Issue Tags / Capsules */}
+                        {device.tags && device.tags.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5 pt-0.5">
+                                {device.tags.map((tag, i) => (
+                                    <span key={i} className="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-300 border border-purple-500/20 font-medium">
+                                        {tag}
+                                    </span>
+                                ))}
                             </div>
                         )}
 
-                        {/* قائمة الزبناء */}
-                        {activeTab === 'clients' && (
-                            <div className="bg-gray-900 p-5 rounded-xl border border-gray-800">
-                                <h3 className="text-xl font-bold mb-4 text-emerald-400">أجهزة وزبناء الورشة</h3>
-                                <div className="space-y-3">
-                                    {clients.map(c => (
-                                        <div key={c.id} className="p-4 bg-gray-800/50 rounded-lg border border-gray-700/50 flex justify-between items-center">
-                                            <div>
-                                                <h4 className="font-bold text-lg text-white">{c.name}</h4>
-                                                <p className="text-sm text-gray-300 mt-1"><span className="text-emerald-400">الجهاز:</span> {c.device} | <span className="text-amber-400">العطل:</span> {c.issue}</p>
-                                            </div>
-                                            <div className="text-left">
-                                                <span className="text-xs bg-blue-500/10 text-blue-400 px-3 py-1 rounded block mb-1">{c.phone || 'بدون هاتف'}</span>
-                                                <span className="text-xs bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded">{c.status}</span>
-                                            </div>
-                                        </div>
+                        {/* Technician, Customer & Passcode Details Grid */}
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 text-xs border-t border-darkBorder/60 text-gray-400">
+                            <div>
+                                <span className="text-[10px] uppercase font-mono block text-gray-500">التقني المسؤول:</span>
+                                <span className="font-semibold text-gray-200 flex items-center gap-1.5 mt-0.5">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                                    <span className="truncate">{device.technician || 'غير محدد'}</span>
+                                </span>
+                            </div>
+
+                            <div>
+                                <span className="text-[10px] uppercase font-mono block text-gray-500">الزبون:</span>
+                                <span className="font-semibold text-gray-200 truncate block mt-0.5">{device.customerName}</span>
+                                <span className="text-[10px] text-gray-400 font-mono">{device.phone}</span>
+                            </div>
+
+                            <div>
+                                <span className="text-[10px] uppercase font-mono block text-gray-500">المبلغ المتفق عليه:</span>
+                                <span className="font-black text-emerald-400 font-mono text-sm block mt-0.5">
+                                    {device.repairCost || 0} {settings.currency}
+                                </span>
+                            </div>
+
+                            <div>
+                                <span className="text-[10px] uppercase font-mono block text-gray-500">رمز القفل:</span>
+                                <button 
+                                    onClick={onTogglePasscode}
+                                    className="font-mono text-xs text-amber-300 font-bold flex items-center gap-1.5 mt-0.5 hover:text-amber-200"
+                                    title="انقر لإظهار أو إخفاء الرمز">
+                                    <i className="fa-solid fa-key text-[10px] text-amber-400"></i>
+                                    <span>{isPasscodeVisible ? device.passcode : '••••'}</span>
+                                    <i className={`fa-regular ${isPasscodeVisible ? 'fa-eye-slash' : 'fa-eye'} text-[10px] text-gray-400`}></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Spare parts note if any */}
+                        {device.partsUsed && (
+                            <div className="bg-darkBg/60 p-2 rounded-xl border border-darkBorder/80 text-[11px] text-gray-300 flex items-start gap-2">
+                                <i className="fa-solid fa-microchip text-purple-400 mt-0.5 text-xs"></i>
+                                <div>
+                                    <span className="font-bold text-purple-300">القطع المستعملة: </span>
+                                    <span>{device.partsUsed}</span>
+                                    <span className="text-gray-500 mr-2 font-mono">({device.partsCost || 0} {settings.currency})</span>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Right / Actions & Status changing sidebar */}
+                    <div className="bg-darkCardSecondary/40 p-4 border-t lg:border-t-0 lg:border-r border-darkBorder flex flex-col justify-between min-w-[240px] space-y-3">
+                        {/* Current Status Badge */}
+                        <div className="flex items-center justify-between">
+                            <span className="text-[10px] text-gray-400 font-mono">الحالة الحالية:</span>
+                            <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold border flex items-center gap-1.5 ${statusConf.color}`}>
+                                <i className={`fa-solid ${statusConf.icon} text-[10px]`}></i>
+                                <span>{statusConf.label}</span>
+                            </span>
+                        </div>
+
+                        {/* Quick action button depending on status */}
+                        <div className="space-y-1.5">
+                            {device.status === 'new' && (
+                                <button
+                                    onClick={() => onUpdateStatus('in_progress')}
+                                    className="w-full py-2 px-3 bg-amber-600/20 hover:bg-amber-600 text-amber-300 hover:text-white border border-amber-500/40 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5">
+                                    <i className="fa-solid fa-screwdriver-wrench"></i>
+                                    <span>بدء الفحص والإصلاح ⬅️</span>
+                                </button>
+                            )}
+
+                            {device.status === 'in_progress' && (
+                                <button
+                                    onClick={() => onUpdateStatus('ready')}
+                                    className="w-full py-2 px-3 bg-emerald-600/20 hover:bg-emerald-600 text-emerald-300 hover:text-white border border-emerald-500/40 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5">
+                                    <i className="fa-solid fa-circle-check"></i>
+                                    <span>تحديد كجاهز للاستلام ⬅️</span>
+                                </button>
+                            )}
+
+                            {device.status === 'waiting_parts' && (
+                                <button
+                                    onClick={() => onUpdateStatus('in_progress')}
+                                    className="w-full py-2 px-3 bg-emerald-600/20 hover:bg-emerald-600 text-emerald-300 hover:text-white border border-emerald-500/40 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5">
+                                    <i className="fa-solid fa-box-open"></i>
+                                    <span>وصلت القطع - استئناف الإصلاح</span>
+                                </button>
+                            )}
+
+                            {device.status === 'ready' && (
+                                <button
+                                    onClick={() => onUpdateStatus('delivered')}
+                                    className="w-full py-2 px-3 bg-blue-600/20 hover:bg-blue-600 text-blue-300 hover:text-white border border-blue-500/40 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5">
+                                    <i className="fa-solid fa-box-archive"></i>
+                                    <span>تسليم للزبون وقبض المبلغ ⬅️</span>
+                                </button>
+                            )}
+
+                            {/* Status Changer dropdown */}
+                            <select
+                                value={device.status}
+                                onChange={(e) => onUpdateStatus(e.target.value)}
+                                className="w-full bg-darkBg border border-darkBorder rounded-xl px-2.5 py-1.5 text-xs text-gray-300 focus:outline-none focus:border-emerald-500 cursor-pointer">
+                                {Object.entries(STATUS_CONFIG).map(([k, c]) => (
+                                    <option key={k} value={k}>تحويل إلى: {c.label}</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        {/* Communication & Print Action Buttons */}
+                        <div className="grid grid-cols-4 gap-1.5 pt-1">
+                            {/* WhatsApp button */}
+                            <button
+                                onClick={onOpenWhatsApp}
+                                title="إرسال واتساب مع تفاصيل الحساب البنكي"
+                                className="py-2 rounded-xl bg-emerald-500/15 hover:bg-emerald-600 text-emerald-400 hover:text-white border border-emerald-500/30 flex items-center justify-center transition text-xs font-bold">
+                                <i className="fa-brands fa-whatsapp text-sm"></i>
+                            </button>
+
+                            {/* Direct phone call */}
+                            <a
+                                href={`tel:${device.phone}`}
+                                title="اتصال بالزبون"
+                                className="py-2 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white border border-gray-700 flex items-center justify-center transition text-xs">
+                                <i className="fa-solid fa-phone text-xs"></i>
+                            </a>
+
+                            {/* Print receipt */}
+                            <button
+                                onClick={onPrintReceipt}
+                                title="طباعة وصل استلام رسمي"
+                                className="py-2 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white border border-gray-700 flex items-center justify-center transition text-xs">
+                                <i className="fa-solid fa-print text-xs"></i>
+                            </button>
+
+                            {/* Edit */}
+                            <button
+                                onClick={onEdit}
+                                title="تعديل بيانات التذكرة"
+                                className="py-2 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white border border-gray-700 flex items-center justify-center transition text-xs">
+                                <i className="fa-solid fa-pen text-xs"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        /* -------------------------------------------------------------
+           INTAKE / EDIT MODAL COMPONENT
+           ------------------------------------------------------------- */
+        function IntakeModal({ device, nextId, settings, onClose, onSave }) {
+            const isEdit = !!device;
+
+            const [customerName, setCustomerName] = useState(device?.customerName || '');
+            const [phone, setPhone] = useState(device?.phone || '');
+            const [deviceModel, setDeviceModel] = useState(device?.deviceModel || '');
+            const [issue, setIssue] = useState(device?.issue || '');
+            const [passcode, setPasscode] = useState(device?.passcode || '');
+            const [priority, setPriority] = useState(device?.priority || 'normal');
+            const [technician, setTechnician] = useState(device?.technician || settings.technicians[0] || 'يوسف السالمي');
+            const [repairCost, setRepairCost] = useState(device?.repairCost || '');
+            const [partsCost, setPartsCost] = useState(device?.partsCost || 0);
+            const [partsUsed, setPartsUsed] = useState(device?.partsUsed || '');
+            const [tags, setTags] = useState(device?.tags || []);
+
+            const toggleTag = (tag) => {
+                setTags(prev => prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]);
+            };
+
+            const addQuickPart = (partName) => {
+                setPartsUsed(prev => {
+                    if (!prev) return partName;
+                    if (prev.includes(partName)) return prev;
+                    return `${prev} + ${partName}`;
+                });
+            };
+
+            const handleSubmit = (e) => {
+                e.preventDefault();
+                if (!customerName || !deviceModel || !phone) return;
+
+                const ticketData = {
+                    id: device ? device.id : nextId,
+                    customerName,
+                    phone,
+                    deviceModel,
+                    issue,
+                    passcode: passcode || 'لا يوجد',
+                    priority,
+                    status: device ? device.status : 'new',
+                    technician,
+                    repairCost: Number(repairCost) || 0,
+                    partsCost: Number(partsCost) || 0,
+                    partsUsed,
+                    tags,
+                    isOverdue: device ? device.isOverdue : false,
+                    createdAt: device ? device.createdAt : new Date().toISOString(),
+                    updatedAt: new Date().toISOString()
+                };
+
+                onSave(ticketData);
+            };
+
+            const calculatedProfit = (Number(repairCost) || 0) - (Number(partsCost) || 0);
+
+            return (
+                <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 md:p-4 overflow-y-auto">
+                    <div className="bg-darkCard border border-darkBorder rounded-2xl max-w-2xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden my-auto">
+                        {/* Header */}
+                        <div className="p-4 md:p-5 border-b border-darkBorder flex items-center justify-between bg-darkCardSecondary/50">
+                            <div className="flex items-center gap-2.5">
+                                <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center text-sm shadow">
+                                    <i className="fa-solid fa-mobile-screen-button"></i>
+                                </div>
+                                <div>
+                                    <h3 className="text-base font-black text-white">
+                                        {isEdit ? `تعديل التذكرة #${device.id}` : `تسجيل واستلام جهاز جديد #${nextId}`}
+                                    </h3>
+                                    <p className="text-xs text-gray-400">سجل بيانات الزبون، العطل، رمز القفل، وقطع الغيار</p>
+                                </div>
+                            </div>
+                            <button onClick={onClose} className="text-gray-400 hover:text-white p-2 text-base">
+                                <i className="fa-solid fa-xmark"></i>
+                            </button>
+                        </div>
+
+                        {/* Form Body */}
+                        <form onSubmit={handleSubmit} className="p-4 md:p-6 overflow-y-auto space-y-4 text-xs">
+                            {/* Customer Info */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div>
+                                    <label className="block font-bold text-gray-300 mb-1">اسم الزبون الكامل *</label>
+                                    <input
+                                        type="text"
+                                        value={customerName}
+                                        onChange={(e) => setCustomerName(e.target.value)}
+                                        required
+                                        placeholder="مثال: يوسف العلوي"
+                                        className="w-full bg-darkBg border border-darkBorder rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-emerald-500"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block font-bold text-gray-300 mb-1">رقم الهاتف (للاتصال والواتساب) *</label>
+                                    <input
+                                        type="text"
+                                        value={phone}
+                                        onChange={(e) => setPhone(e.target.value)}
+                                        required
+                                        placeholder="مثال: 0612345678"
+                                        className="w-full bg-darkBg border border-darkBorder rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-emerald-500 font-mono"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Device & Passcode */}
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                <div className="sm:col-span-2">
+                                    <label className="block font-bold text-gray-300 mb-1">نوع وموديل الجهاز بدقة *</label>
+                                    <input
+                                        type="text"
+                                        value={deviceModel}
+                                        onChange={(e) => setDeviceModel(e.target.value)}
+                                        required
+                                        placeholder="مثال: Apple iPhone 15 Pro Max أو Samsung S24"
+                                        className="w-full bg-darkBg border border-darkBorder rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-emerald-500 font-bold"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block font-bold text-amber-300 mb-1">رمز القفل / الشاشة (Passcode)</label>
+                                    <input
+                                        type="text"
+                                        value={passcode}
+                                        onChange={(e) => setPasscode(e.target.value)}
+                                        placeholder="مثال: 1234"
+                                        className="w-full bg-darkBg border border-amber-500/40 rounded-xl px-3.5 py-2.5 text-amber-300 font-mono focus:outline-none focus:border-amber-400"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Issue description */}
+                            <div>
+                                <label className="block font-bold text-gray-300 mb-1">وصف العطل بدقة *</label>
+                                <textarea
+                                    value={issue}
+                                    onChange={(e) => setIssue(e.target.value)}
+                                    rows="2"
+                                    required
+                                    placeholder="مثلاً: كسر في الشاشة، لا يشحن، دخول ماء، الجهاز فاصل باور..."
+                                    className="w-full bg-darkBg border border-darkBorder rounded-xl p-3 text-white focus:outline-none focus:border-emerald-500"></textarea>
+                            </div>
+
+                            {/* Quick Issue Tags Selection */}
+                            <div>
+                                <label className="block font-bold text-gray-400 mb-1.5">وسوم وتصنيف العطل (انقر للاختيار السريع):</label>
+                                <div className="flex flex-wrap gap-1.5">
+                                    {COMMON_ISSUE_TAGS.map((tag) => {
+                                        const isSelected = tags.includes(tag);
+                                        return (
+                                            <button
+                                                type="button"
+                                                key={tag}
+                                                onClick={() => toggleTag(tag)}
+                                                className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition ${isSelected ? 'bg-purple-600 text-white font-bold' : 'bg-darkBg text-gray-400 border border-darkBorder hover:text-white'}`}>
+                                                {tag}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
+                            {/* Technician & Priority */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div>
+                                    <label className="block font-bold text-gray-300 mb-1">التقني المكلف بالإصلاح</label>
+                                    <select
+                                        value={technician}
+                                        onChange={(e) => setTechnician(e.target.value)}
+                                        className="w-full bg-darkBg border border-darkBorder rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-emerald-500">
+                                        {settings.technicians.map(t => (
+                                            <option key={t} value={t}>{t}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block font-bold text-gray-300 mb-1">مستوى الأولوية</label>
+                                    <select
+                                        value={priority}
+                                        onChange={(e) => setPriority(e.target.value)}
+                                        className="w-full bg-darkBg border border-darkBorder rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-emerald-500">
+                                        <option value="normal">أولوية عادية (Normal)</option>
+                                        <option value="high">أولوية عالية (High)</option>
+                                        <option value="urgent">عاجل جداً / طارئ (Urgent)</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            {/* Spare Parts (الريب) Section */}
+                            <div className="bg-darkBg p-4 rounded-2xl border border-darkBorder space-y-3">
+                                <div className="flex items-center justify-between">
+                                    <label className="font-bold text-purple-300 flex items-center gap-1.5">
+                                        <i className="fa-solid fa-microchip"></i>
+                                        <span>قطع الغيار المستعملة (الريب):</span>
+                                    </label>
+                                    <span className="text-[10px] text-gray-400">اكتب بحرية أو انقر الكبسولات</span>
+                                </div>
+
+                                <input
+                                    type="text"
+                                    value={partsUsed}
+                                    onChange={(e) => setPartsUsed(e.target.value)}
+                                    placeholder="مثال: شاشة OLED أصلية + كونكتور شحن..."
+                                    className="w-full bg-darkCard border border-darkBorder rounded-xl px-3.5 py-2 text-white focus:outline-none focus:border-purple-500"
+                                />
+
+                                {/* Quick pills */}
+                                <div className="flex flex-wrap gap-1">
+                                    {QUICK_PARTS.map(p => (
+                                        <button
+                                            type="button"
+                                            key={p}
+                                            onClick={() => addQuickPart(p)}
+                                            className="px-2 py-0.5 rounded bg-gray-800 hover:bg-purple-600 text-gray-300 hover:text-white text-[10px] transition border border-gray-700">
+                                            + {p}
+                                        </button>
                                     ))}
                                 </div>
-                            </div>
-                        )}
 
-                        {/* إضافة جهاز جديد */}
-                        {activeTab === 'add' && (
-                            <div className="bg-gray-900 p-6 rounded-xl border border-gray-800 max-w-xl mx-auto">
-                                <h3 className="text-xl font-bold mb-4 text-emerald-400">تسجيل جهاز جديد للورشة</h3>
-                                <form onSubmit={addClient} className="space-y-4">
+                                {/* Financial row */}
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-2 border-t border-darkBorder">
                                     <div>
-                                        <label className="block text-sm text-gray-400 mb-1">اسم الزبون</label>
-                                        <input type="text" value={newName} onChange={e => setNewName(e.target.value)} required className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2.5 text-white focus:outline-none focus:border-emerald-500" placeholder="مثال: يوسف العلوي" />
+                                        <label className="block text-[11px] font-bold text-gray-400 mb-1">ثمن الإصلاح للزبون ({settings.currency}) *</label>
+                                        <input
+                                            type="number"
+                                            value={repairCost}
+                                            onChange={(e) => setRepairCost(e.target.value)}
+                                            required
+                                            placeholder="مثال: 800"
+                                            className="w-full bg-darkCard border border-darkBorder rounded-xl px-3 py-2 text-emerald-400 font-bold font-mono focus:outline-none focus:border-emerald-500"
+                                        />
                                     </div>
                                     <div>
-                                        <label className="block text-sm text-gray-400 mb-1">رقم الهاتف</label>
-                                        <input type="text" value={newPhone} onChange={e => setNewPhone(e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2.5 text-white focus:outline-none focus:border-emerald-500" placeholder="مثال: 0612345678" />
+                                        <label className="block text-[11px] font-bold text-gray-400 mb-1">تكلفة القطعة بالمحل ({settings.currency})</label>
+                                        <input
+                                            type="number"
+                                            value={partsCost}
+                                            onChange={(e) => setPartsCost(e.target.value)}
+                                            placeholder="0 إذا كانت خردة/مجانية"
+                                            className="w-full bg-darkCard border border-darkBorder rounded-xl px-3 py-2 text-purple-400 font-bold font-mono focus:outline-none focus:border-purple-500"
+                                        />
                                     </div>
-                                    <div>
-                                        <label className="block text-sm text-gray-400 mb-1">نوع الجهاز</label>
-                                        <input type="text" value={newDevice} onChange={e => setNewDevice(e.target.value)} required className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2.5 text-white focus:outline-none focus:border-emerald-500" placeholder="مثال: Samsung S22" />
+                                    <div className="col-span-2 sm:col-span-1 bg-darkCard p-2 rounded-xl border border-darkBorder flex flex-col justify-center text-center">
+                                        <span className="text-[10px] text-gray-400">صافي ربح اليد العاملة</span>
+                                        <span className="text-base font-black text-emerald-400 font-mono">
+                                            {calculatedProfit} {settings.currency}
+                                        </span>
                                     </div>
-                                    <div>
-                                        <label className="block text-sm text-gray-400 mb-1">وصف العطل</label>
-                                        <textarea value={newIssue} onChange={e => setNewIssue(e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2.5 text-white focus:outline-none focus:border-emerald-500" placeholder="تحديد المشكل بدقة..."></textarea>
-                                    </div>
-                                    <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 rounded-lg transition">حفظ الجهاز</button>
-                                </form>
+                                </div>
                             </div>
-                        )}
+
+                            {/* Submit buttons */}
+                            <div className="pt-2 flex items-center justify-end gap-2">
+                                <button
+                                    type="button"
+                                    onClick={onClose}
+                                    className="px-4 py-2.5 rounded-xl bg-gray-800 text-gray-300 font-bold hover:bg-gray-700 transition">
+                                    إلغاء
+                                </button>
+                                <button
+                                    type="submit"
+                                    className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black transition flex items-center gap-2 shadow-lg shadow-emerald-950">
+                                    <i className="fa-solid fa-floppy-disk"></i>
+                                    <span>{isEdit ? 'حفظ التعديلات' : 'تسجيل الجهاز وطباعة الوصل'}</span>
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            );
+        }
+
+        /* -------------------------------------------------------------
+           WHATSAPP MODAL COMPONENT (With RIB option & respectful message)
+           ------------------------------------------------------------- */
+        function WhatsAppModal({ device, settings, onClose, onSend }) {
+            const [includeRib, setIncludeRib] = useState(settings.includeRibInWhatsApp);
+            const [customNote, setCustomNote] = useState('');
+
+            // Generate message preview
+            const preview = useMemo(() => {
+                const custName = device.customerName;
+                const model = device.deviceModel;
+                const ticketId = device.id;
+                const cost = device.repairCost || 0;
+                const rib = settings.rib;
+                const workshop = settings.workshopName;
+
+                let msg = `السلام عليكم أخي الكريم ${custName}،\n`;
+                if (device.status === 'ready') {
+                    msg += `نخبركم من ورشة *${workshop}* أن جهازكم *${model}* (تذكرة رقم: *#${ticketId}*) قد تم إصلاحه بنجاح وهو *جاهز للاستلام* الآن ✅.\n\n`;
+                    msg += `💰 المبلغ المطلوب: *${cost} ${settings.currency}*\n`;
+                } else if (device.status === 'in_progress') {
+                    msg += `نحيطكم علماً بأن جهازكم *${model}* (تذكرة: *#${ticketId}*) هو حالياً *قيد الفحص والإصلاح الدقيق* لدى ورشة *${workshop}* 🛠️.\n`;
+                } else if (device.status === 'waiting_parts') {
+                    msg += `بخصوص جهازكم *${model}* (تذكرة: *#${ticketId}*) لدى ورشة *${workshop}*:\nنحن بانتظار استلام قطعة الغيار الأصلية المطلوبة ⏳.\n`;
+                } else {
+                    msg += `معك ورشة *${workshop}* بخصوص جهازك *${model}* (تذكرة: *#${ticketId}*).\n`;
+                }
+
+                if (includeRib && rib) {
+                    msg += `\n💳 *للدفع المباشر عبر التحويل البنكي (RIB):*\n${rib}\n(يرجى إرسال وصل التحويل عند إتمامه)\n`;
+                }
+
+                if (customNote) {
+                    msg += `\nملاحظة: ${customNote}\n`;
+                }
+
+                msg += `\n📍 مرحباً بكم في الورشة، وشكراً لثقتكم بنا.`;
+                return msg;
+            }, [device, settings, includeRib, customNote]);
+
+            const copyToClipboard = () => {
+                navigator.clipboard.writeText(preview);
+                alert('تم نسخ نص الرسالة إلى الحافظة!');
+            };
+
+            return (
+                <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+                    <div className="bg-darkCard border border-darkBorder rounded-2xl max-w-lg w-full p-5 space-y-4 shadow-2xl">
+                        <div className="flex items-center justify-between border-b border-darkBorder pb-3">
+                            <div className="flex items-center gap-2 text-emerald-400">
+                                <i className="fa-brands fa-whatsapp text-2xl"></i>
+                                <h3 className="font-extrabold text-white text-base">إرسال إشعار واتساب للزبون</h3>
+                            </div>
+                            <button onClick={onClose} className="text-gray-400 hover:text-white">
+                                <i className="fa-solid fa-xmark text-lg"></i>
+                            </button>
+                        </div>
+
+                        {/* Customer overview */}
+                        <div className="bg-darkBg p-3 rounded-xl border border-darkBorder flex items-center justify-between text-xs">
+                            <div>
+                                <span className="font-bold text-white block">{device.customerName}</span>
+                                <span className="text-gray-400 font-mono">{device.phone}</span>
+                            </div>
+                            <div className="text-left">
+                                <span className="font-mono text-emerald-400 font-bold block">{device.deviceModel}</span>
+                                <span className="text-[10px] text-gray-500">#{device.id}</span>
+                            </div>
+                        </div>
+
+                        {/* RIB Option Checkbox */}
+                        <div className="bg-emerald-950/30 border border-emerald-500/30 p-3 rounded-xl space-y-1">
+                            <label className="flex items-center gap-2 text-xs font-bold text-emerald-300 cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={includeRib}
+                                    onChange={(e) => setIncludeRib(e.target.checked)}
+                                    className="rounded bg-darkBg border-darkBorder text-emerald-500 w-4 h-4 cursor-pointer"
+                                />
+                                <span>تضمين رقم الحساب البنكي (RIB) في الرسالة لدفع ثمن الإصلاح</span>
+                            </label>
+                            {includeRib && (
+                                <p className="text-[11px] text-gray-400 font-mono pr-6">
+                                    الحساب: {settings.rib || 'يرجى إدخال الـ RIB في الإعدادات'}
+                                </p>
+                            )}
+                        </div>
+
+                        {/* Custom note */}
+                        <div>
+                            <label className="block text-xs font-bold text-gray-400 mb-1">ملاحظة إضافية مخصصة (اختياري):</label>
+                            <input
+                                type="text"
+                                value={customNote}
+                                onChange={(e) => setCustomNote(e.target.value)}
+                                placeholder="مثلاً: يرجى إحضار كابل الشحن معكم..."
+                                className="w-full bg-darkBg border border-darkBorder rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-emerald-500"
+                            />
+                        </div>
+
+                        {/* Preview Box */}
+                        <div>
+                            <label className="block text-xs font-bold text-gray-400 mb-1">معاينة الرسالة:</label>
+                            <div className="bg-darkBg/90 border border-darkBorder rounded-xl p-3 text-xs text-gray-300 whitespace-pre-line font-sans max-h-48 overflow-y-auto leading-relaxed border-r-2 border-r-emerald-500">
+                                {preview}
+                            </div>
+                        </div>
+
+                        {/* Buttons */}
+                        <div className="flex items-center justify-between pt-2 gap-2">
+                            <button
+                                onClick={copyToClipboard}
+                                className="px-3.5 py-2.5 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs font-bold transition flex items-center gap-1.5">
+                                <i className="fa-solid fa-copy"></i>
+                                <span>نسخ النص</span>
+                            </button>
+
+                            <button
+                                onClick={() => onSend(customNote, includeRib)}
+                                className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black transition flex items-center gap-2 shadow-lg shadow-emerald-950">
+                                <i className="fa-brands fa-whatsapp text-sm"></i>
+                                <span>إرسال عبر واتساب الآن</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        /* -------------------------------------------------------------
+           RECEIPT MODAL COMPONENT (Official printable ticket slip)
+           ------------------------------------------------------------- */
+        function ReceiptModal({ device, settings, onClose }) {
+            const handlePrint = () => {
+                window.print();
+            };
+
+            return (
+                <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+                    <div className="bg-white text-gray-900 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl relative my-auto">
+                        <div className="no-print flex items-center justify-between border-b pb-3">
+                            <span className="text-xs font-bold text-gray-500">معاينة وصل استلام الجهاز</span>
+                            <div className="flex items-center gap-2">
+                                <button onClick={handlePrint} className="px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-bold flex items-center gap-1.5">
+                                    <i className="fa-solid fa-print"></i>
+                                    <span>طباعة الوصل</span>
+                                </button>
+                                <button onClick={onClose} className="text-gray-500 hover:text-gray-900 p-1">
+                                    <i className="fa-solid fa-xmark"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Printable Ticket */}
+                        <div className="p-2 space-y-4 text-right" dir="rtl">
+                            {/* Workshop Header */}
+                            <div className="text-center border-b pb-3 space-y-1">
+                                <h2 className="text-xl font-black text-gray-900">{settings.workshopName}</h2>
+                                <p className="text-xs text-gray-600">{settings.address}</p>
+                                <p className="text-xs text-gray-600 font-mono">الهاتف: {settings.phone}</p>
+                                <div className="mt-2 inline-block px-3 py-1 bg-gray-100 rounded-full font-mono font-black text-sm">
+                                    تذكرة رقم: #{device.id}
+                                </div>
+                            </div>
+
+                            {/* Details */}
+                            <div className="space-y-2 text-xs">
+                                <div className="flex justify-between border-b pb-1">
+                                    <span className="text-gray-500">الزبون:</span>
+                                    <span className="font-bold">{device.customerName}</span>
+                                </div>
+                                <div className="flex justify-between border-b pb-1">
+                                    <span className="text-gray-500">الهاتف:</span>
+                                    <span className="font-mono">{device.phone}</span>
+                                </div>
+                                <div className="flex justify-between border-b pb-1">
+                                    <span className="text-gray-500">نوع الجهاز:</span>
+                                    <span className="font-bold">{device.deviceModel}</span>
+                                </div>
+                                <div className="flex justify-between border-b pb-1">
+                                    <span className="text-gray-500">العطل المصرح به:</span>
+                                    <span className="font-medium text-gray-800">{device.issue}</span>
+                                </div>
+                                <div className="flex justify-between border-b pb-1">
+                                    <span className="text-gray-500">رمز القفل:</span>
+                                    <span className="font-mono font-bold">{device.passcode}</span>
+                                </div>
+                                <div className="flex justify-between border-b pb-1">
+                                    <span className="text-gray-500">تاريخ الاستلام:</span>
+                                    <span className="font-mono">{new Date(device.createdAt).toLocaleDateString('ar-MA')}</span>
+                                </div>
+                            </div>
+
+                            {/* Financial */}
+                            <div className="bg-gray-50 p-3 rounded-xl border flex justify-between items-center">
+                                <span className="font-bold text-xs text-gray-700">المبلغ المتفق عليه للإصلاح:</span>
+                                <span className="text-base font-black text-emerald-700 font-mono">
+                                    {device.repairCost} {settings.currency}
+                                </span>
+                            </div>
+
+                            {/* Bank RIB on receipt if available */}
+                            {settings.rib && (
+                                <div className="p-2 rounded bg-gray-50 border text-[10px] space-y-0.5">
+                                    <span className="font-bold text-gray-700 block">للدفع عبر التحويل البنكي (RIB):</span>
+                                    <span className="font-mono text-gray-900 block font-bold">{settings.rib}</span>
+                                </div>
+                            )}
+
+                            {/* Terms */}
+                            <div className="text-[9px] text-gray-500 space-y-1 pt-1 border-t">
+                                <p>• يرجى الإدلاء بهذا الوصل عند استلام الجهاز.</p>
+                                <p>• الورشة غير مسؤولة عن الأجهزة التي تتجاوز مدة بقائها 30 يوماً بعد الإشعار بالجاهزية.</p>
+                                <p>• ضمان الإصلاح يشمل العطل المحدد فقط لمدة شهر من تاريخ التسليم.</p>
+                            </div>
+
+                            <div className="pt-3 text-center text-xs font-bold text-gray-800">
+                                شكراً لثقتكم بنا!
+                            </div>
+                        </div>
                     </div>
                 </div>
             );
