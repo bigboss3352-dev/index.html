@@ -1,0 +1,13 @@
+[
+  {
+    "id": "usr-mgr-1789405751638",
+    "role": "manager",
+    "fullName": "Karim Tazi",
+    "workshopName": "FastFix Phone Lab",
+    "email": "karim@fastfix.com",
+    "password": "mypassword999",
+    "emailVerified": true,
+    "verifiedAt": "2026-09-14T17:09:11.638Z",
+    "createdAt": "2026-09-14T17:09:11.638Z"
+  }
+]

@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "node server.js",
     "lint": "node -c server.js",
-    "build": "mkdir -p dist && cp index.html dist/",
+    "build": "mkdir -p dist && cp index.html translations.js dist/",
     "start": "node server.js"
   },
   "dependencies": {
